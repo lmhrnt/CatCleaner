@@ -56,22 +56,17 @@ struct PreferredWiFiClient: Sendable {
     }
 
     private static func runProcess(command: String, arguments: [String]) async -> CommandResult {
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = URL(filePath: command)
-        process.arguments = arguments
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let stdout = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            let stderr = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            return (stdout, stderr, process.terminationStatus)
-        } catch {
-            return ("", error.localizedDescription, -1)
-        }
+        await Task.detached(priority: .utility) {
+            do {
+                let result = try ProcessOutputCapture.run(
+                    executable: URL(fileURLWithPath: command),
+                    arguments: arguments
+                )
+                return (result.stdout, result.stderr, result.exitCode)
+            } catch {
+                return ("", error.localizedDescription, -1)
+            }
+        }.value
     }
 }
 

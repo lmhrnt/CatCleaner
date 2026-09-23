@@ -175,23 +175,10 @@ public actor ThinAppBundleOperation {
     private static func runProcess(
         _ executable: String, _ args: [String]
     ) throws -> (Int32, String, String) {
-        let process = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        process.executableURL = URL(filePath: executable)
-        process.arguments = args
-        process.standardOutput = outPipe
-        process.standardError = errPipe
-        try process.run()
-        process.waitUntilExit()
-        let stdout = String(
-            data: outPipe.fileHandleForReading.readDataToEndOfFile(),
-            encoding: .utf8
-        ) ?? ""
-        let stderr = String(
-            data: errPipe.fileHandleForReading.readDataToEndOfFile(),
-            encoding: .utf8
-        ) ?? ""
-        return (process.terminationStatus, stdout, stderr)
+        let result = try ProcessOutputCapture.run(
+            executable: URL(fileURLWithPath: executable),
+            arguments: args
+        )
+        return (result.exitCode, result.stdout, result.stderr)
     }
 }

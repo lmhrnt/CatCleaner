@@ -54,22 +54,15 @@ public enum DeletedUsersScanner {
     }
 
     private static func readActiveUsernames() -> Set<String> {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(filePath: "/usr/bin/dscl")
-        process.arguments = [".", "-list", "/Users"]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-            return DeletedUsersCategory.parseDsclOutput(output)
-        } catch {
+        guard let result = try? ProcessOutputCapture.run(
+            executable: URL(fileURLWithPath: "/usr/bin/dscl"),
+            arguments: [".", "-list", "/Users"]
+        ),
+        result.exitCode == 0
+        else {
             return Set()
         }
+        return DeletedUsersCategory.parseDsclOutput(result.stdout)
     }
 
     private static func directorySize(_ url: URL) -> UInt64 {

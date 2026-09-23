@@ -189,19 +189,14 @@ public enum UniversalBinariesScanner {
     }
 
     private static func runLipoInfo(at url: URL) -> [String] {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(filePath: "/usr/bin/lipo")
-        process.arguments = ["-info", url.path(percentEncoded: false)]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        guard (try? process.run()) != nil else { return [] }
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return [] }
-        let output = String(
-            data: pipe.fileHandleForReading.readDataToEndOfFile(),
-            encoding: .utf8
-        ) ?? ""
+        guard let result = try? ProcessOutputCapture.run(
+            executable: URL(fileURLWithPath: "/usr/bin/lipo"),
+            arguments: ["-info", url.path(percentEncoded: false)]
+        ),
+        result.exitCode == 0
+        else { return [] }
+
+        let output = result.stdout
         if let r = output.range(of: "are: ") {
             return output[r.upperBound...]
                 .trimmingCharacters(in: .whitespacesAndNewlines)

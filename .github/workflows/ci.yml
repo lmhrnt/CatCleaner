@@ -89,6 +89,7 @@ jobs:
             Tests/MacCleanTests/ReleaseIsolationTests.swift
             Tests/MacCleanKitTests/DeveloperCleanupTests.swift
             Tests/MacCleanKitTests/SimilarPhotoGroupingTests.swift
+            Tests/MacCleanKitTests/ProcessOutputCaptureTests.swift
           )
           for path in "${required[@]}"; do
             test -f "$path" || {
@@ -168,6 +169,9 @@ jobs:
             echo "::error::Duplicates must start review-only, not fully preselected"
             exit 1
           fi
+
+      - name: Verify process pipe draining order
+        run: python3 scripts/check-process-pipe-order.py
 
       - name: Check deletion surfaces
         run: |

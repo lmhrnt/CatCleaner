@@ -101,38 +101,27 @@ public actor MaintenanceExecutor {
     }
 
     private func runProcess(task: MaintenanceTask, command: String, args: [String]) async -> TaskResult {
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-
-        process.executableURL = URL(filePath: command)
-        process.arguments = args
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: outputData, encoding: .utf8) ?? ""
-            let error = String(data: errorData, encoding: .utf8)
-
-            return TaskResult(
-                task: task,
-                success: process.terminationStatus == 0,
-                output: output,
-                error: error?.isEmpty == true ? nil : error
-            )
-        } catch {
-            return TaskResult(
-                task: task,
-                success: false,
-                output: "",
-                error: error.localizedDescription
-            )
-        }
+        await Task.detached(priority: .utility) {
+            do {
+                let result = try ProcessOutputCapture.run(
+                    executable: URL(fileURLWithPath: command),
+                    arguments: args
+                )
+                return TaskResult(
+                    task: task,
+                    success: result.exitCode == 0,
+                    output: result.stdout,
+                    error: result.stderr.isEmpty ? nil : result.stderr
+                )
+            } catch {
+                return TaskResult(
+                    task: task,
+                    success: false,
+                    output: "",
+                    error: error.localizedDescription
+                )
+            }
+        }.value
     }
 
     private func reindexMail() async -> TaskResult {
