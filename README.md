@@ -51,6 +51,13 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - complete-link 保守分群，避免 A≈B、B≈C 就誤把 A/B/C 全部合成一群
   - 嚴格／平衡／寬鬆三個人工審查門檻
   - 不預選、不刪除、不丟垃圾桶、不 APFS consolidate
+- 新增「已移除 App 殘留」專頁：
+  - 重用既有 bundle-ID orphan detector，而不是名稱模糊比對
+  - 只掃 Caches、Logs、HTTPStorages、Saved Application State、WebKit 頂層
+  - Preferences、Containers、Group Containers、Keychain 不列為孤立殘留
+  - 已安裝 App + LaunchServices 雙重交叉檢查
+  - vendor namespace / helper lineage 保守 keep
+  - 預設零選取，人工勾選後只移到 macOS 垃圾桶
 - 新增「開發者清理」保守執行模組：
   - CatDesk build/recovery/snapshots
   - Codex cache/sessions
