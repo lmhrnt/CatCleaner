@@ -13,7 +13,7 @@
 
 | BuhoCleaner 類功能 | CatCleaner | CatCleaner 實作 |
 |---|---|---|
-| 一鍵系統垃圾掃描 | ✅ | Smart Scan + System Junk，多類別掃描 |
+| 一鍵系統垃圾掃描 | 🛡️ | Smart Scan + System Junk；只有 7 類低風險 cache/log/失敗下載/舊更新會預選，其餘一律 review-only |
 | 系統/應用程式快取與記錄 | ✅ | Caches / Logs / package manager / IDE / AI tool categories |
 | 瀏覽器相關清理 | ✅ | Privacy / browser cache ownership safeguards |
 | 垃圾桶 | ✅ | Trash 模組；清空垃圾桶是明確不可逆確認 |
@@ -54,14 +54,15 @@
 
 CatCleaner 的設計不把「容量很大」直接等同「垃圾」：
 
-1. **active owner gate**：App/編譯工作正在使用就不清。
-2. **scanner ≠ execution authority**：新增掃描規則不會自動獲得刪除權。
-3. **Trash-first**：一般可重建資料優先移到 macOS 垃圾桶。
-4. **retention-aware**：recovery / snapshot / release history 需 retention proof。
-5. **stateful report-only**：VM、containers、sessions 等預設只報告。
-6. **相似照片 review-only**：視覺相似不等於 bit-identical，不做自動刪除。
-7. **VM / iOS backup bundle semantics**：整包顯示，避免將內部檔案拆散誤刪。
-8. **downstream identity fail-closed**：不繼承 Mac Sai 的 Team ID、release feed、Homebrew cask。
+1. **Smart Scan 中央預選 allowlist**：未知/新類別不因建構子預設而自動勾選；malware、privacy、Trash、偏好設定、啟動項、開發工具 cache 等都需人工審查。
+2. **active owner gate**：App/編譯工作正在使用就不清。
+3. **scanner ≠ execution authority**：新增掃描規則不會自動獲得刪除權。
+4. **Trash-first**：一般可重建資料優先移到 macOS 垃圾桶。
+5. **retention-aware**：recovery / snapshot / release history 需 retention proof。
+6. **stateful report-only**：VM、containers、sessions 等預設只報告。
+7. **相似照片 review-only**：視覺相似不等於 bit-identical，不做自動刪除。
+8. **VM / iOS backup bundle semantics**：整包顯示，避免將內部檔案拆散誤刪。
+9. **downstream identity fail-closed**：不繼承 Mac Sai 的 Team ID、release feed、Homebrew cask。
 
 ## 目前建置驗證狀態
 

@@ -149,25 +149,44 @@ public enum ScanCategory: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Central Smart Scan preselection policy.
+    ///
+    /// Fail closed: only categories with a narrow, low-risk, reconstructible
+    /// contract are preselected. Every new category defaults to review-only
+    /// until it is deliberately added to this allowlist.
     public var autoSelect: Bool {
         switch self {
-        case .unusedDiskImages, .largeFiles, .oldFiles, .duplicates,
-             .universalBinaries, .appLeftovers, .deletedUsers,
-             .packageManagerCaches, .ideCaches, .aiToolCaches:
-            // appLeftovers: deletes another app's leftover data; detection is
-            // conservative but never auto-checked — the user reviews first.
-            // universalBinaries: thinning rewrites the app's binaries in
-            // place (lipo preserves their signatures; we never re-sign).
-            // Still only reversible by re-downloading the app, so don't
-            // pre-check — force explicit consent.
-            // deletedUsers: flags an entire /Users/<name> home folder based
-            // on it being absent from `dscl . -list /Users` at scan time —
-            // a network/mobile account that's briefly unreachable would
-            // look identical to a genuinely removed one. Never pre-check;
-            // the user must look at the name and confirm each one.
-            false
-        default:
-            true
+        case .userCaches,
+             .systemCaches,
+             .userLogs,
+             .systemLogs,
+             .brokenDownloads,
+             .oldUpdates,
+             .incompleteDownloads:
+            return true
+
+        case .languageFiles,
+             .brokenPreferences,
+             .brokenLoginItems,
+             .documentVersions,
+             .iosDeviceBackups,
+             .universalBinaries,
+             .xcodeJunk,
+             .deletedUsers,
+             .unusedDiskImages,
+             .appLeftovers,
+             .packageManagerCaches,
+             .ideCaches,
+             .aiToolCaches,
+             .mailAttachments,
+             .trashBins,
+             .malware,
+             .browserPrivacy,
+             .systemPrivacy,
+             .largeFiles,
+             .oldFiles,
+             .duplicates:
+            return false
         }
     }
 }

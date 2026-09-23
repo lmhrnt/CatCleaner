@@ -200,12 +200,79 @@ final class ScanCategoryEnumTests: XCTestCase {
         }
     }
 
-    func testAutoSelectDefaults() {
-        XCTAssertTrue(ScanCategory.userCaches.autoSelect)
-        XCTAssertTrue(ScanCategory.systemCaches.autoSelect)
-        XCTAssertFalse(ScanCategory.unusedDiskImages.autoSelect)
-        XCTAssertFalse(ScanCategory.largeFiles.autoSelect)
-        XCTAssertFalse(ScanCategory.duplicates.autoSelect)
+    func testAutoSelectPolicyIsExplicitAndFailClosed() {
+        let autoSelected: Set<ScanCategory> = [
+            .userCaches,
+            .systemCaches,
+            .userLogs,
+            .systemLogs,
+            .brokenDownloads,
+            .oldUpdates,
+            .incompleteDownloads,
+        ]
+
+        let reviewOnly: Set<ScanCategory> = [
+            .languageFiles,
+            .brokenPreferences,
+            .brokenLoginItems,
+            .documentVersions,
+            .iosDeviceBackups,
+            .universalBinaries,
+            .xcodeJunk,
+            .deletedUsers,
+            .unusedDiskImages,
+            .appLeftovers,
+            .packageManagerCaches,
+            .ideCaches,
+            .aiToolCaches,
+            .mailAttachments,
+            .trashBins,
+            .malware,
+            .browserPrivacy,
+            .systemPrivacy,
+            .largeFiles,
+            .oldFiles,
+            .duplicates,
+        ]
+
+        XCTAssertEqual(autoSelected.union(reviewOnly), Set(ScanCategory.allCases))
+        XCTAssertTrue(autoSelected.isDisjoint(with: reviewOnly))
+
+        for category in autoSelected {
+            XCTAssertTrue(category.autoSelect, "\(category) should be preselected")
+        }
+        for category in reviewOnly {
+            XCTAssertFalse(category.autoSelect, "\(category) should require review")
+        }
+    }
+
+    func testScanResultUsesCategoryPolicyWhenOverrideIsOmitted() {
+        XCTAssertTrue(
+            ScanResult(category: .userCaches, items: []).autoSelect
+        )
+        XCTAssertFalse(
+            ScanResult(category: .malware, items: []).autoSelect
+        )
+        XCTAssertFalse(
+            ScanResult(category: .brokenPreferences, items: []).autoSelect
+        )
+    }
+
+    func testExplicitScanResultOverrideRemainsAvailableForNarrowTestsAndViews() {
+        XCTAssertFalse(
+            ScanResult(
+                category: .userCaches,
+                items: [],
+                autoSelect: false
+            ).autoSelect
+        )
+        XCTAssertTrue(
+            ScanResult(
+                category: .duplicates,
+                items: [],
+                autoSelect: true
+            ).autoSelect
+        )
     }
 }
 

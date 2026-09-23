@@ -64,7 +64,11 @@ struct SystemJunkView: View {
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.primary)
 
-                    Text(L10n.tr("查找并移除系统缓存、日志、\n语言文件和其他垃圾", "Find and remove system caches, logs,\nlanguage files, and other junk", "Поиск и удаление системных кэшей, журналов,\nфайлов локализации и другого мусора"))
+                    Text(L10n.tr(
+                        "查找系统缓存、日志、失效残留与其他可安全审查的垃圾",
+                        "Find system caches, logs, broken leftovers, and other junk that can be reviewed safely",
+                        "Поиск системных кэшей, журналов, неработающих остатков и другого мусора, который можно безопасно проверить"
+                    ))
                     .font(.system(size: 14))
                     .foregroundStyle(.primary.opacity(0.65))
                     .multilineTextAlignment(.center)

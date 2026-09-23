@@ -10,9 +10,10 @@ import MacCleanTestSupport
 /// real SystemJunkModule.scan() and asserts disposition.
 ///
 /// Documented gaps (not feasible via plain XCTest):
-///  - LanguageFiles: scans /Applications recursively; planting fake .app
-///    bundles in /Applications during tests would pollute the user's apps
-///    list. Covered indirectly by SimpleCategories tests.
+///  - LanguageFiles: intentionally NOT registered by SystemJunkModule.
+///    Deleting .lproj resources from signed app bundles can invalidate resource
+///    seals/update integrity. The pure category remains covered by
+///    MacCleanKit tests for future research only.
 ///  - XcodeJunk: requires Xcode-shaped DerivedData/Archives/etc dirs
 ///    that may not exist on every machine; covered by SimpleCategories
 ///    tests.

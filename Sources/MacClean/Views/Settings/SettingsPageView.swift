@@ -27,17 +27,8 @@ struct SettingsPageView: View {
     @State private var launcher = MenuBarLauncher.shared
     @State private var loginLauncher = LaunchAtLoginManager.shared
     @State private var updateState: UpdateUIState = .idle
-    @State private var keptLanguages: Set<String> = []
-    @State private var selectable: [(name: String, lprojs: [String])] = []
-    @State private var languageSearch: String = ""
     @State private var excludedFolders: [String] = FolderExclusionPreferences.paths
     @State private var exclusionError: String?
-
-    /// Selectable languages filtered by the search field (case-insensitive).
-    private var filteredLanguages: [(name: String, lprojs: [String])] {
-        guard !languageSearch.isEmpty else { return selectable }
-        return selectable.filter { $0.name.localizedCaseInsensitiveContains(languageSearch) }
-    }
 
     var body: some View {
         Form {
@@ -55,16 +46,7 @@ struct SettingsPageView: View {
         .frame(maxWidth: .infinity)
         .onAppear {
             launchAtLogin = loginLauncher.refreshStatus()
-            keptLanguages = LanguagePreferences.userKept
-            selectable = LanguagePreferences.selectableLanguages()
             excludedFolders = FolderExclusionPreferences.paths
-            Task.detached(priority: .userInitiated) {
-                let found = LanguageScanner().discoverLproj(in: LanguageScanner.defaultRoots)
-                await MainActor.run {
-                    LanguagePreferences.discoveredLproj = found
-                    selectable = LanguagePreferences.selectableLanguages()
-                }
-            }
         }
     }
 
@@ -302,7 +284,6 @@ struct SettingsPageView: View {
             .pickerStyle(.segmented)
             .onChange(of: appLanguageRaw) { _, newValue in
                 AppLanguage.current = AppLanguage(rawValue: newValue) ?? .fallback
-                selectable = LanguagePreferences.selectableLanguages()
             }
 
             Text(L10n.tr("切换后会立即应用到主界面和菜单栏小组件。", "Changes apply immediately to the main window and menu-bar widget.", "Язык сразу меняется в главном окне и виджете в строке меню."))
@@ -344,57 +325,23 @@ struct SettingsPageView: View {
 
     private var languageSection: some View {
         Section(L10n.tr("语言清理", "Language Cleanup", "Очистка языковых файлов")) {
+            Label(
+                L10n.tr(
+                    "为保护 App 签名与更新完整性，CatCleaner 当前不删除已安装 App 内的语言资源。",
+                    "CatCleaner currently does not delete language resources inside installed apps in order to protect code-signature and update integrity.",
+                    "CatCleaner сейчас не удаляет языковые ресурсы внутри установленных приложений, чтобы сохранить целостность подписи и обновлений."
+                ),
+                systemImage: "lock.shield"
+            )
+            .font(.body)
+
             Text(L10n.tr(
-                "英文、基础资源、中文和俄文会始终保留。已勾选的语言会保留；未勾选的语言文件可由“系统垃圾”移除。",
-                "English, Base resources, Chinese, and Russian are always kept. Checked languages are preserved; unchecked language files can be removed by System Junk.",
-                "Английский, базовые ресурсы, китайский и русский языки сохраняются всегда. Отмеченные языки сохраняются; файлы неотмеченных языков можно удалить в разделе «Системный мусор»."
+                "许多 macOS App 会把 .lproj 资源纳入签名封装。直接移除这些文件可能让资源封装失效、干扰验证或后续更新。底层语言扫描器暂时保留用于研究，但“系统垃圾”不会扫描或清理这些文件。",
+                "Many macOS apps include .lproj resources in their signed bundle seal. Removing them can invalidate resource integrity, interfere with verification, or break later updates. The underlying language scanner remains for research, but System Junk does not scan or clean these files.",
+                "Многие приложения macOS включают ресурсы .lproj в подписанную структуру пакета. Их удаление может нарушить целостность ресурсов, проверку или последующие обновления. Базовый сканер языков сохранён для исследований, но «Системный мусор» не сканирует и не удаляет эти файлы."
             ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if selectable.isEmpty {
-                Text(L10n.tr("正在检测已安装语言…", "Detecting installed languages…", "Поиск установленных языков…"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                TextField(L10n.tr("搜索语言", "Search languages", "Поиск языков"), text: $languageSearch)
-                    .textFieldStyle(.roundedBorder)
-
-                if filteredLanguages.isEmpty {
-                    Text(L10n.tr("没有语言匹配“\(languageSearch)”。", "No languages match “\(languageSearch)”.", "Языки по запросу «\(languageSearch)» не найдены."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                // Fixed-height scroll box: ~100 languages would otherwise
-                // stretch the page and push the About section out of reach.
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(filteredLanguages, id: \.name) { lang in
-                            // One toggle covers every folder variant of the
-                            // language (e.g. "fr.lproj" + legacy "French.lproj").
-                            HStack {
-                                Text(lang.name)
-                                Spacer()
-                                Toggle(lang.name, isOn: Binding(
-                                    get: { lang.lprojs.allSatisfy { keptLanguages.contains($0) } },
-                                    set: { on in
-                                        if on { keptLanguages.formUnion(lang.lprojs) }
-                                        else { lang.lprojs.forEach { keptLanguages.remove($0) } }
-                                        LanguagePreferences.userKept = keptLanguages
-                                    }
-                                ))
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
-                                .labelsHidden()
-                            }
-                            .padding(.vertical, 5)
-                            .padding(.trailing, 6)
-                            Divider().opacity(0.5)
-                        }
-                    }
-                }
-                .frame(height: 250)
-            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
     }
 

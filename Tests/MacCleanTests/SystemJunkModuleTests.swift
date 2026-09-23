@@ -5,8 +5,12 @@ import MacCleanKit
 
 final class SystemJunkModuleTests: EnglishAppLanguageTestCase {
 
-    func testRegistersAll20Categories() {
-        XCTAssertEqual(SystemJunkModule.allCategories.count, 20)
+    func testRegistersOnlyExecutableSystemJunkCategories() {
+        XCTAssertEqual(SystemJunkModule.allCategories.count, 19)
+        XCTAssertFalse(
+            SystemJunkModule.allCategories.contains { $0.scanCategory == .languageFiles },
+            "signed app language resources must remain fail-closed"
+        )
     }
 
     func testAllCategoriesAreUnique() {

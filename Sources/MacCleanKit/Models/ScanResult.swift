@@ -5,10 +5,18 @@ public struct ScanResult: Sendable {
     public var items: [FileItem]
     public let autoSelect: Bool
 
-    public init(category: ScanCategory, items: [FileItem], autoSelect: Bool = true) {
+    /// `nil` means "use the category's central Smart Scan policy".
+    /// This avoids a dangerous default-true failure mode where a new module
+    /// accidentally becomes preselected merely because its author omitted
+    /// the autoSelect argument.
+    public init(
+        category: ScanCategory,
+        items: [FileItem],
+        autoSelect: Bool? = nil
+    ) {
         self.category = category
         self.items = items
-        self.autoSelect = autoSelect
+        self.autoSelect = autoSelect ?? category.autoSelect
     }
 
     public var totalSize: UInt64 {

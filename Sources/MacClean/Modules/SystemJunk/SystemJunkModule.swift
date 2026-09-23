@@ -19,7 +19,10 @@ public struct SystemJunkModule: ScanModule {
         SystemCacheCategory(),
         UserLogCategory(),
         SystemLogCategory(),
-        LanguageFilesCategory(),
+        // LanguageFilesCategory intentionally not registered. Removing .lproj
+        // resources from signed third-party app bundles can invalidate resource
+        // seals and interfere with app updates. Keep the pure category code for
+        // future research, but CatCleaner does not expose deletion today.
         BrokenPreferencesCategory(),
         BrokenLoginItemsCategory(),
         DocumentVersionsCategory(),
@@ -51,8 +54,7 @@ public struct SystemJunkModule: ScanModule {
                         guard !items.isEmpty else { return nil }
                         return ScanResult(
                             category: .universalBinaries,
-                            items: items,
-                            autoSelect: cat.scanCategory.autoSelect
+                            items: items
                         )
                     }
                     // App leftovers: enumerates the safe Library subdirs for
@@ -62,8 +64,7 @@ public struct SystemJunkModule: ScanModule {
                         guard !items.isEmpty else { return nil }
                         return ScanResult(
                             category: .appLeftovers,
-                            items: items,
-                            autoSelect: cat.scanCategory.autoSelect
+                            items: items
                         )
                     }
                     // Deleted users: /Users folders that no longer match an
@@ -75,8 +76,7 @@ public struct SystemJunkModule: ScanModule {
                         guard !items.isEmpty else { return nil }
                         return ScanResult(
                             category: .deletedUsers,
-                            items: items,
-                            autoSelect: cat.scanCategory.autoSelect
+                            items: items
                         )
                     }
                     let items = await scanner.scan(targets: cat.targets)
@@ -105,8 +105,7 @@ public struct SystemJunkModule: ScanModule {
                     guard !filtered.isEmpty else { return nil }
                     return ScanResult(
                         category: cat.scanCategory,
-                        items: filtered,
-                        autoSelect: cat.scanCategory.autoSelect
+                        items: filtered
                     )
                 }
             }
