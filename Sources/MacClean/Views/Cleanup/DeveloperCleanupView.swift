@@ -298,7 +298,7 @@ struct DeveloperCleanupView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: summary.errors.isEmpty ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(summary.errors.isEmpty ? .green : .orange)
+                .foregroundStyle(summary.errors.isEmpty ? Color.green : Color.orange)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(L10n.tr(

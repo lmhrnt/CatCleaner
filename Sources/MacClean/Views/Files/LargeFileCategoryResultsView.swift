@@ -171,7 +171,7 @@ struct LargeFileCategoryResultsView: View {
 
                     Text("\(count) · \(FileSizeFormatter.format(size))")
                         .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(selected ? .primary.opacity(0.75) : .secondary)
+                        .foregroundStyle(selected ? Color.primary.opacity(0.75) : Color.secondary)
                 }
             }
             .padding(.horizontal, 10)

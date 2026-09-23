@@ -400,7 +400,7 @@ private struct SimilarPhotoCard: View {
             HStack(spacing: 6) {
                 Text(badge)
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(distance == nil ? .blue : .secondary)
+                    .foregroundStyle(distance == nil ? Color.blue : Color.secondary)
 
                 if let distance {
                     Text("d=\(String(format: "%.3f", distance))")

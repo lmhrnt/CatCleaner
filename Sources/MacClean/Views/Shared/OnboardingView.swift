@@ -3,7 +3,16 @@ import MacCleanKit
 
 struct OnboardingView: View {
     @Binding var isPresented: Bool
+    let onComplete: () -> Void
     @State private var currentStep = 0
+
+    init(
+        isPresented: Binding<Bool>,
+        onComplete: @escaping () -> Void = {}
+    ) {
+        self._isPresented = isPresented
+        self.onComplete = onComplete
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,8 +64,11 @@ struct OnboardingView: View {
                     Button(L10n.tr("下一步", "Next", "Далее")) { withAnimation { currentStep += 1 } }
                         .buttonStyle(.borderedProminent)
                 } else {
-                    Button(L10n.tr("开始使用", "Get Started", "Начать")) { isPresented = false }
-                        .buttonStyle(.borderedProminent)
+                    Button(L10n.tr("开始使用", "Get Started", "Начать")) {
+                        onComplete()
+                        isPresented = false
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
             .padding(24)

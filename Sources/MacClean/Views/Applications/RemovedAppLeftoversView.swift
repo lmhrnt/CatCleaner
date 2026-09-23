@@ -303,22 +303,44 @@ struct RemovedAppLeftoversView: View {
     private func cleanSelected() {
         guard !selectedItems.isEmpty, !isScanning, !isCleaning else { return }
 
-        let selection = selectedItems
-        let snapshot = items
+        let requestedSelection = selectedItems
         isCleaning = true
 
         Task {
-            let result = await CleanActions.executeUserClean(
-                items: snapshot,
-                selectedItems: selection,
-                engine: appState.cleaningEngine
-            )
+            // Fresh orphan scan immediately before mutation. An app may have
+            // been reinstalled or registered after the visible scan; such a
+            // path must lose cleanup authority instead of being trusted from
+            // stale UI state.
+            let fresh = await Task.detached(priority: .userInitiated) {
+                AppLeftoversScanner.scan()
+            }.value
+            let freshItems = fresh.filter { CleanFilter.isActionable($0.url) }
+            let freshURLs = Set(freshItems.map(\.url))
+            let authorizedSelection = requestedSelection.intersection(freshURLs)
+            let noLongerOrphanCount = requestedSelection.count - authorizedSelection.count
+
+            let result: CleaningEngine.CleanResult
+            if authorizedSelection.isEmpty {
+                result = CleaningEngine.CleanResult(
+                    removedCount: 0,
+                    freedBytes: 0,
+                    removedURLs: [],
+                    errors: [],
+                    skippedCount: 0
+                )
+            } else {
+                result = await CleanActions.executeUserClean(
+                    items: freshItems,
+                    selectedItems: authorizedSelection,
+                    engine: appState.cleaningEngine
+                )
+            }
 
             selectedItems.removeAll()
             lastCleanupMessage = L10n.tr(
-                "已移动 \(result.removedCount) 项（\(FileSizeFormatter.format(result.freedBytes))）到垃圾桶；阻挡/略过 \(result.skippedCount) 项，错误 \(result.errors.count) 项。清空垃圾桶后才会真正释放空间。",
-                "Moved \(result.removedCount) items (\(FileSizeFormatter.format(result.freedBytes))) to Trash; \(result.skippedCount) blocked/skipped and \(result.errors.count) errors. Disk space is reclaimed only after Trash is emptied.",
-                "В Корзину перемещено объектов: \(result.removedCount) (\(FileSizeFormatter.format(result.freedBytes))); заблокировано/пропущено: \(result.skippedCount), ошибок: \(result.errors.count). Место освободится только после очистки Корзины."
+                "已移动 \(result.removedCount) 项（\(FileSizeFormatter.format(result.freedBytes))）到垃圾桶；重新验证后取消 \(noLongerOrphanCount) 项，阻挡/略过 \(result.skippedCount) 项，错误 \(result.errors.count) 项。清空垃圾桶后才会真正释放空间。",
+                "Moved \(result.removedCount) items (\(FileSizeFormatter.format(result.freedBytes))) to Trash; \(noLongerOrphanCount) selections were cancelled by fresh revalidation, \(result.skippedCount) blocked/skipped, and \(result.errors.count) errors. Disk space is reclaimed only after Trash is emptied.",
+                "В Корзину перемещено объектов: \(result.removedCount) (\(FileSizeFormatter.format(result.freedBytes))); после повторной проверки отменено: \(noLongerOrphanCount), заблокировано/пропущено: \(result.skippedCount), ошибок: \(result.errors.count). Место освободится только после очистки Корзины."
             )
 
             let rescanned = await Task.detached(priority: .userInitiated) {

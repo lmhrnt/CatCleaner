@@ -34,16 +34,21 @@ struct MacCleanApp: App {
                 .id(appLanguage.rawValue)
                 .frame(minWidth: 800, minHeight: 550)
                 .sheet(isPresented: $showOnboarding) {
-                    OnboardingView(isPresented: $showOnboarding)
-                        .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
-                        .id(appLanguage.rawValue)
+                    OnboardingView(
+                        isPresented: $showOnboarding,
+                        onComplete: { hasCompletedOnboarding = true }
+                    )
+                    .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
+                    .id(appLanguage.rawValue)
                 }
                 .onAppear {
                     if !hasCompletedOnboarding {
                         showOnboarding = true
-                        hasCompletedOnboarding = true
                     }
                     syncMenuBarOnLaunch()
+                }
+                .onChange(of: appState.onboardingRequestNonce) { _, _ in
+                    showOnboarding = true
                 }
                 .onOpenURL { url in
                     // Expect exactly catcleaner://module/<slug> — one path

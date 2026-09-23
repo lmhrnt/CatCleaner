@@ -8,6 +8,8 @@ import MacCleanKit
 /// catcleaner://module/settings. Replaced the separate Settings window
 /// (spec: docs/superpowers/specs/2026-06-05-settings-page-design.md).
 struct SettingsPageView: View {
+    @Environment(AppState.self) private var appState
+
     enum UpdateUIState: Equatable {
         case idle
         case checking
@@ -268,6 +270,34 @@ struct SettingsPageView: View {
                 Label(err.localizedDescription, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.caption)
+            }
+
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.tr(
+                        "重新显示使用导览",
+                        "Show onboarding again",
+                        "Показать знакомство снова"
+                    ))
+                    Text(L10n.tr(
+                        "重新查看完全磁盘访问权限、安全原则与主要功能说明。",
+                        "Review Full Disk Access, safety principles, and the main feature tour.",
+                        "Снова посмотреть инструкции по полному доступу к диску, принципам безопасности и основным функциям."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button(L10n.tr(
+                    "打开导览",
+                    "Open Onboarding",
+                    "Открыть знакомство"
+                )) {
+                    appState.requestOnboarding()
+                }
+                .buttonStyle(.bordered)
             }
         }
     }
