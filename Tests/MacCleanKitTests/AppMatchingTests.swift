@@ -105,6 +105,23 @@ final class AppMatchingTests: XCTestCase {
                        "generic app token must not match unrelated apps")
     }
 
+    func testMatchLevelsExposeOnlyImplementedPatternEvidence() {
+        XCTAssertEqual(
+            AppMatching.MatchLevel.allCases,
+            [
+                .bundleIDExact,
+                .displayName,
+                .appDirName,
+                .normalizedName,
+                .bundleIDComponents,
+                .baseBundleID,
+                .versionStripped,
+                .companyName,
+            ]
+        )
+        XCTAssertEqual(AppMatching.MatchLevel.allCases.last, .companyName)
+    }
+
     // MARK: - Level 8: company name
 
     func testCompanyName() {

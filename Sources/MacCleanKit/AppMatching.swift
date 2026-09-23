@@ -1,6 +1,6 @@
 import Foundation
 
-/// 10-level matching engine for finding files associated with an installed app.
+/// 8-level filename/path matching engine for finding files associated with an installed app.
 /// Pure — given an `AppInfo`, produces a `Set<String>` of substring patterns
 /// to search for in the user's Library subdirectories.
 public enum AppMatching {
@@ -13,9 +13,7 @@ public enum AppMatching {
         case bundleIDComponents = 5   // "google.Chrome"
         case baseBundleID = 6         // strip .helper / .agent / .daemon / .launcher / .updater
         case versionStripped = 7      // "chrome" (strip "100.0.0.1")
-        case companyName = 8          // "google"
-        case teamIdentifier = 9       // from code signature (not implemented)
-        case entitlements = 10        // from entitlements (not implemented)
+        case companyName = 8          // "google" (explicit opt-in only)
     }
 
     /// Library subdirectories the uninstaller searches for app leftovers.
@@ -108,13 +106,6 @@ public enum AppMatching {
                         patterns.insert(company)
                     }
                 }
-
-            case .teamIdentifier:
-                // Would require Security.framework code signing APIs
-                break
-            case .entitlements:
-                // Would require Security.framework entitlement reading
-                break
             }
         }
 
