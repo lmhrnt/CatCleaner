@@ -10,6 +10,7 @@ struct OptimizationView: View {
     @State private var isLoading = true
     @State private var showAlert = false
     @State private var alertMessage = ""
+    @State private var isRefreshing = false
 
     private let manager = AutoStartManager()
 
@@ -34,6 +35,7 @@ struct OptimizationView: View {
                 } label: {
                     Label(L10n.tr("刷新", "Refresh", "Обновить"), systemImage: "arrow.clockwise")
                 }
+                .disabled(isRefreshing)
                 .help(L10n.tr("重新扫描启动项", "Rescan startup items", "Повторно проверить объекты автозапуска"))
             }
             .padding(.horizontal, 24)
@@ -131,10 +133,30 @@ struct OptimizationView: View {
     // MARK: - Refresh
 
     private func refresh() {
-        loginItems = manager.getLoginItems()
-        launchAgents = manager.getLaunchAgents()
-        launchDaemons = manager.getLaunchDaemons()
-        isLoading = false
+        guard !isRefreshing else { return }
+        isRefreshing = true
+
+        let manager = manager
+        Task {
+            let snapshot = await Task.detached(priority: .userInitiated) {
+                (
+                    loginItems: manager.getLoginItems(),
+                    launchAgents: manager.getLaunchAgents(),
+                    launchDaemons: manager.getLaunchDaemons()
+                )
+            }.value
+
+            guard !Task.isCancelled else {
+                isRefreshing = false
+                return
+            }
+
+            loginItems = snapshot.loginItems
+            launchAgents = snapshot.launchAgents
+            launchDaemons = snapshot.launchDaemons
+            isLoading = false
+            isRefreshing = false
+        }
     }
 }
 

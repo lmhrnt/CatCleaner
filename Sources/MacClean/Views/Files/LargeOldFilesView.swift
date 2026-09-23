@@ -56,31 +56,27 @@ struct LargeOldFilesView: View {
         results = []
         selectedItems = []
         Task {
-            let scanStart = Date()
-
-            scanPhase = L10n.tr("正在扫描个人目录...", "Scanning home directory...", "Сканирование домашней папки...")
-            scanProgress = 0.2
-            try? await Task.sleep(for: .milliseconds(500))
-
-            scanPhase = L10n.tr("正在检查文件大小...", "Checking file sizes...", "Проверка размеров файлов...")
-            scanProgress = 0.45
+            scanPhase = L10n.tr(
+                "正在扫描个人目录...",
+                "Scanning home directory...",
+                "Сканирование домашней папки..."
+            )
+            scanProgress = 0.15
 
             let module = LargeOldFilesModule()
-            async let scanTask = module.scan()
-
-            try? await Task.sleep(for: .milliseconds(400))
-            scanPhase = L10n.tr("正在检查访问日期...", "Checking access dates...", "Проверка дат последнего доступа...")
-            scanProgress = 0.7
-
-            results = await scanTask
-
-            scanPhase = L10n.tr("正在整理结果...", "Grouping results...", "Группировка результатов...")
-            scanProgress = 0.9
-
-            let elapsed = Date().timeIntervalSince(scanStart)
-            if elapsed < 2.0 {
-                try? await Task.sleep(for: .milliseconds(Int((2.0 - elapsed) * 1000)))
+            let scannedResults = await module.scan()
+            guard !Task.isCancelled else {
+                isScanning = false
+                return
             }
+
+            scanPhase = L10n.tr(
+                "正在整理结果...",
+                "Grouping results...",
+                "Группировка результатов..."
+            )
+            scanProgress = 0.9
+            results = scannedResults
             scanProgress = 1.0
 
             isScanning = false

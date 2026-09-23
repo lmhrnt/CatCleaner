@@ -30,7 +30,10 @@ public struct LargeOldFilesModule: ScanModule {
                 maxDepth: 5,
                 minAge: minAge,
                 minSize: minSize,
-                excludePatterns: ["Library", ".Trash", ".git", "node_modules"]
+                // Downloads is scanned by the dedicated unlimited-depth
+                // target below. Excluding it here avoids walking the same tree
+                // twice while preserving deep nested downloads beyond maxDepth 5.
+                excludePatterns: ["Library", "Downloads", ".Trash", ".git", "node_modules"]
             ),
             ScanTarget(
                 path: MCConstants.downloads,
