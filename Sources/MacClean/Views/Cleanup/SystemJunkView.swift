@@ -303,7 +303,7 @@ struct SystemJunkView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 52))
                     .foregroundStyle(.primary)
-                SizeDisplay(size: summary.freedBytes, label: L10n.tr("已清理", "cleaned up", "освобождено"))
+                SizeDisplay(size: summary.freedBytes, label: L10n.tr("已清理", "cleaned up", "очищено"))
                     .foregroundStyle(.primary)
                 if summary.removedCount < summary.selectedCount {
                     // Partial success — tell them what got skipped.

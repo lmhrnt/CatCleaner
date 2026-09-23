@@ -144,6 +144,31 @@ jobs:
             exit 1
           fi
 
+          for file in \
+            Sources/MacClean/Views/Protection/MalwareView.swift \
+            Sources/MacClean/Views/Protection/PrivacyView.swift \
+            Sources/MacClean/Views/Cleanup/TrashBinsView.swift \
+            Sources/MacClean/Views/Cleanup/MailAttachmentsView.swift \
+            Sources/MacClean/Views/Files/DuplicatesView.swift
+          do
+            rg -n 'ScanSelectionPolicy\.defaultSelection' "$file" >/dev/null || {
+              echo "::error::Dedicated cleanup view bypasses central selection policy: $file"
+              exit 1
+            }
+          done
+
+          if rg -n 'for r in results \{ selectedItems\.formUnion' \
+            Sources/MacClean/Views/Protection; then
+            echo "::error::Protection view directly preselects every scan result"
+            exit 1
+          fi
+
+          if rg -n 'selectedItems = Set\(removable\.map' \
+            Sources/MacClean/Views/Files/DuplicatesView.swift; then
+            echo "::error::Duplicates must start review-only, not fully preselected"
+            exit 1
+          fi
+
       - name: Check deletion surfaces
         run: |
           UNSAFE=$(rg -n             'removeItem\(|trashItem\('             Sources/MacClean --glob '*.swift' |

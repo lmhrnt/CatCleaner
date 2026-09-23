@@ -278,13 +278,14 @@ struct DuplicatesView: View {
             displayGroups = groups
             expandedGroups = []
             // The cleaner only ever sees the removable copies — never an
-            // original — so a kept copy can't be deleted even by selecting all.
+            // original — so a kept copy cannot be selected for deletion.
+            // Duplicates are review-only by central policy, so even removable
+            // copies start unchecked.
             let removable = groups.flatMap(\.duplicates)
             results = removable.isEmpty
                 ? []
-                : [ScanResult(category: .duplicates, items: removable, autoSelect: false)]
-            // Pre-check every removable copy; the user unchecks anything to spare.
-            selectedItems = Set(removable.map(\.url))
+                : [ScanResult(category: .duplicates, items: removable)]
+            selectedItems = ScanSelectionPolicy.defaultSelection(from: results)
             isScanning = false
             scanComplete = true
             scanTask = nil

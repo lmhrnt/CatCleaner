@@ -87,9 +87,7 @@ struct TrashBinsView: View {
             }
             scanProgress = 1.0
 
-            for r in results where r.autoSelect {
-                selectedItems.formUnion(r.items.map(\.url))
-            }
+            selectedItems = ScanSelectionPolicy.defaultSelection(from: results)
             isScanning = false
             scanComplete = true
         }

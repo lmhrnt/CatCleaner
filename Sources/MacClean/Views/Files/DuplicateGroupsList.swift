@@ -4,9 +4,10 @@ import MacCleanKit
 
 /// Grouped results for the Duplicates module. Each set shows the copy we keep
 /// (the "original", marked KEPT and with no checkbox — it can never be selected
-/// for deletion) above its removable copies, which are pre-checked. The binding
-/// only ever holds the URLs of removable copies, so the original is structurally
-/// impossible to delete: it isn't in the list the cleaner operates on.
+/// for deletion) above its removable copies. Removable copies start unchecked
+/// under the central review-only policy; the user explicitly selects what to
+/// remove. The binding only ever holds removable-copy URLs, so the original is
+/// structurally impossible to delete.
 struct DuplicateGroupsList: View {
     let groups: [DuplicateDisplayGroup]
     @Binding var selectedItems: Set<URL>

@@ -16,13 +16,9 @@ enum SmartScanCleanup {
         modules.flatMap(\.categories).filter { !$0.items.isEmpty }
     }
 
-    /// Pre-check every item in auto-select categories (mirrors per-module views).
+    /// Delegate default selection to MacCleanKit's single safety policy.
     static func defaultSelection(from modules: [ModuleScanResult]) -> Set<URL> {
-        var urls: Set<URL> = []
-        for result in allResults(from: modules) where result.autoSelect {
-            urls.formUnion(result.items.map(\.url))
-        }
-        return urls
+        ScanSelectionPolicy.defaultSelection(from: modules)
     }
 
     /// Per-module size/count of the user's selection, in module scan order.

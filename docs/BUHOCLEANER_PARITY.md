@@ -55,7 +55,7 @@
 
 CatCleaner 的設計不把「容量很大」直接等同「垃圾」：
 
-1. **Smart Scan 中央預選 allowlist**：未知/新類別不因建構子預設而自動勾選；malware、privacy、Trash、偏好設定、啟動項、開發工具 cache 等都需人工審查。
+1. **中央預選 allowlist + 單一 selection policy**：未知/新類別不因建構子預設而自動勾選；Smart Scan、Malware、Privacy、Trash、Mail、Duplicates 都委派給 `ScanSelectionPolicy`。malware、privacy、Trash、偏好設定、啟動項、開發工具 cache、duplicates 等都需人工審查。
 2. **active owner gate**：App/編譯工作正在使用就不清。
 3. **scanner ≠ execution authority**：新增掃描規則不會自動獲得刪除權。
 4. **Trash-first**：一般可重建資料優先移到 macOS 垃圾桶。
