@@ -164,6 +164,7 @@ CatCleaner 對清理功能採 fail-closed：
 4. recovery / snapshot / release history 必須先做 retention review。
 5. VM、container volume、session、科學資料與使用者資料不因「很大」就列入一鍵清理。
 6. 新 scanner 規則與 destructive executor 分離；新增 path rule 不會自動獲得刪除能力。
+7. 通用 `~/Library/Caches` 與 `/Library/Caches` 仍會掃描，但不再預設勾選：generic scanner 無法可靠證明 owner App 已停止。具體工具快取若要安全執行，使用 Developer Cleanup 的 fresh active-owner gate。
 
 ## 上游與授權
 

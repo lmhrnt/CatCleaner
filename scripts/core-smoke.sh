@@ -206,6 +206,16 @@ struct Main {
             ),
         ]
 
+        let genericCache = item("/tmp/generic-cache", 1)
+        let genericSystemCache = item("/tmp/generic-system-cache", 1)
+        let safeLog = item("/tmp/safe-log", 1)
+        let defaultSelection = ScanSelectionPolicy.defaultSelection(from: [
+            ScanResult(category: .userCaches, items: [genericCache]),
+            ScanResult(category: .systemCaches, items: [genericSystemCache]),
+            ScanResult(category: .userLogs, items: [safeLog]),
+        ])
+        require(defaultSelection == Set([safeLog.url]), "generic caches must be review-only by default")
+
         let findings = SmartScanCleanup.findingSummary(from: modules)
         require(findings.cleanupBytes == 190, "cleanup bytes must exclude malware/privacy and dedupe URLs")
         require(findings.malwareCount == 2, "malware count")

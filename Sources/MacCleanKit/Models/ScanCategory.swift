@@ -77,8 +77,16 @@ public enum ScanCategory: String, CaseIterable, Identifiable, Sendable {
     /// One-line description shown under the category name in the results list.
     public var subtitle: String {
         switch self {
-        case .userCaches: L10n.tr("应用临时文件，下次启动会重新生成。", "App temporary files. Regenerated next launch.", "Временные файлы приложений. Будут созданы заново при следующем запуске.")
-        case .systemCaches: L10n.tr("由 macOS 管理的缓存，会自动重建。", "macOS-managed caches. Rebuilt automatically.", "Кэши под управлением macOS. Восстанавливаются автоматически.")
+        case .userCaches: L10n.tr(
+            "应用临时文件，通常可重建；通用缓存扫描无法可靠判断拥有它的 App 是否正在使用，因此默认仅供审查。",
+            "App temporary files are usually rebuildable. Generic cache scanning cannot reliably prove the owning app is inactive, so these are review-only by default.",
+            "Временные файлы приложений обычно восстанавливаемы. Общий сканер кэша не может надёжно подтвердить, что приложение-владелец не используется, поэтому по умолчанию требуется ручная проверка."
+        )
+        case .systemCaches: L10n.tr(
+            "macOS 与系统组件缓存通常可重建，但可能正在使用，因此默认仅供审查。",
+            "macOS and system-component caches are usually rebuildable but may be in active use, so they are review-only by default.",
+            "Кэши macOS и системных компонентов обычно восстанавливаемы, но могут использоваться прямо сейчас, поэтому по умолчанию требуется ручная проверка."
+        )
         case .userLogs: L10n.tr("应用写入的诊断日志。", "Diagnostic logs written by your apps.", "Диагностические журналы приложений.")
         case .systemLogs: L10n.tr("macOS 诊断日志。", "macOS diagnostic logs.", "Диагностические журналы macOS.")
         case .languageFiles: L10n.tr("应用内未使用的本地化语言资源。", "Unused localizations bundled with apps.", "Неиспользуемые локализации, встроенные в приложения.")
@@ -156,16 +164,16 @@ public enum ScanCategory: String, CaseIterable, Identifiable, Sendable {
     /// until it is deliberately added to this allowlist.
     public var autoSelect: Bool {
         switch self {
-        case .userCaches,
-             .systemCaches,
-             .userLogs,
+        case .userLogs,
              .systemLogs,
              .brokenDownloads,
              .oldUpdates,
              .incompleteDownloads:
             return true
 
-        case .languageFiles,
+        case .userCaches,
+             .systemCaches,
+             .languageFiles,
              .brokenPreferences,
              .brokenLoginItems,
              .documentVersions,

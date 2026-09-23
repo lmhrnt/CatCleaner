@@ -13,7 +13,7 @@
 
 | BuhoCleaner 類功能 | CatCleaner | CatCleaner 實作 |
 |---|---|---|
-| 一鍵系統垃圾掃描 | 🛡️ | Smart Scan + System Junk；只有 7 類低風險 cache/log/失敗下載/舊更新會預選，其餘一律 review-only |
+| 一鍵系統垃圾掃描 | 🛡️ | Smart Scan + System Junk；只有 5 類低風險 logs／失敗下載／舊更新會預選。通用 User/System Caches 雖可重建，但 scanner 無法可靠證明 owner App 已停止，因此改為 review-only；其餘亦不自動勾選 |
 | 系統/應用程式快取與記錄 | ✅ | Caches / Logs / package manager / IDE / AI tool categories |
 | 瀏覽器相關清理 | ✅ | Privacy / browser cache ownership safeguards |
 | 垃圾桶 | ✅ | Trash 模組；清空垃圾桶是明確不可逆確認 |
@@ -55,7 +55,7 @@
 
 CatCleaner 的設計不把「容量很大」直接等同「垃圾」：
 
-1. **中央預選 allowlist + 單一 selection policy**：未知/新類別不因建構子預設而自動勾選；Smart Scan、Malware、Privacy、Trash、Mail、Duplicates 都委派給 `ScanSelectionPolicy`。malware、privacy、Trash、偏好設定、啟動項、開發工具 cache、duplicates 等都需人工審查。
+1. **中央預選 allowlist + 單一 selection policy**：未知/新類別不因建構子預設而自動勾選；Smart Scan、Malware、Privacy、Trash、Mail、Duplicates 都委派給 `ScanSelectionPolicy`。通用 User/System Caches 也因缺少可靠 active-owner 證據而改為 review-only；malware、privacy、Trash、偏好設定、啟動項、開發工具 cache、duplicates 等同樣需人工審查。
 2. **active owner gate**：App/編譯工作正在使用就不清。
 3. **scanner ≠ execution authority**：新增掃描規則不會自動獲得刪除權。
 4. **Trash-first**：一般可重建資料優先移到 macOS 垃圾桶。

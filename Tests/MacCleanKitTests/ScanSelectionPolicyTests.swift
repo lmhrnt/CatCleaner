@@ -5,19 +5,34 @@ import XCTest
 
 final class ScanSelectionPolicyTests: XCTestCase {
     func testOnlyAutoSelectResultsContributeURLs() {
-        let safe = item("/tmp/safe-cache", size: 100)
+        let safe = item("/tmp/safe-log", size: 100)
         let malware = item("/tmp/threat", size: 200)
         let privacy = item("/tmp/history", size: 300)
         let duplicate = item("/tmp/copy", size: 400)
 
         let selected = ScanSelectionPolicy.defaultSelection(from: [
-            ScanResult(category: .userCaches, items: [safe]),
+            ScanResult(category: .userLogs, items: [safe]),
             ScanResult(category: .malware, items: [malware]),
             ScanResult(category: .browserPrivacy, items: [privacy]),
             ScanResult(category: .duplicates, items: [duplicate]),
         ])
 
         XCTAssertEqual(selected, [safe.url])
+    }
+
+    func testGenericCachesAreReviewOnlyByDefault() {
+        XCTAssertFalse(ScanCategory.userCaches.autoSelect)
+        XCTAssertFalse(ScanCategory.systemCaches.autoSelect)
+
+        let userCache = item("/tmp/user-cache")
+        let systemCache = item("/tmp/system-cache")
+
+        let selected = ScanSelectionPolicy.defaultSelection(from: [
+            ScanResult(category: .userCaches, items: [userCache]),
+            ScanResult(category: .systemCaches, items: [systemCache]),
+        ])
+
+        XCTAssertTrue(selected.isEmpty)
     }
 
     func testModuleOverloadUsesSamePolicy() {
