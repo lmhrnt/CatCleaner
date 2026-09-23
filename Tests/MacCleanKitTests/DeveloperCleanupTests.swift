@@ -90,6 +90,101 @@ final class DeveloperCleanupTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(results[0].allocatedSize, results[1].allocatedSize)
     }
 
+    func testExecutionPolicyAllowsKnownInactiveNpxCache() {
+        let candidate = policyCandidate(
+            id: "npx-ephemeral-cache",
+            disposition: .safeWhenInactive,
+            ownerActive: false
+        )
+
+        XCTAssertEqual(
+            DeveloperCleanupExecutionPolicy.method(for: candidate),
+            .trashExactRoot
+        )
+    }
+
+    func testExecutionPolicyBlocksActiveOwner() {
+        let candidate = policyCandidate(
+            id: "npx-ephemeral-cache",
+            disposition: .safeWhenInactive,
+            ownerActive: true
+        )
+
+        XCTAssertNil(DeveloperCleanupExecutionPolicy.method(for: candidate))
+    }
+
+    func testExecutionPolicyBlocksRetentionAndReportOnlyData() {
+        XCTAssertNil(
+            DeveloperCleanupExecutionPolicy.method(
+                for: policyCandidate(
+                    id: "catdesk-recovery",
+                    disposition: .retentionReview,
+                    ownerActive: false
+                )
+            )
+        )
+        XCTAssertNil(
+            DeveloperCleanupExecutionPolicy.method(
+                for: policyCandidate(
+                    id: "codex-sessions",
+                    disposition: .reportOnly,
+                    ownerActive: false
+                )
+            )
+        )
+    }
+
+    func testExecutionPolicyDoesNotAutoAuthorizeUnknownSafeDefinition() {
+        let candidate = policyCandidate(
+            id: "future-new-cache",
+            disposition: .safeWhenInactive,
+            ownerActive: false
+        )
+
+        XCTAssertNil(DeveloperCleanupExecutionPolicy.method(for: candidate))
+    }
+
+    func testCatDeskBuildCacheUsesDedicatedGCMethod() {
+        let candidate = policyCandidate(
+            id: "catdesk-build-cache",
+            disposition: .safeWhenInactive,
+            ownerActive: false
+        )
+
+        XCTAssertEqual(
+            DeveloperCleanupExecutionPolicy.method(for: candidate),
+            .catDeskBuildCacheGC
+        )
+    }
+
+    func testBroadChromeCacheRemainsNonExecutable() {
+        let candidate = policyCandidate(
+            id: "chrome-cache",
+            disposition: .safeWhenInactive,
+            ownerActive: false
+        )
+
+        XCTAssertNil(DeveloperCleanupExecutionPolicy.method(for: candidate))
+    }
+
+    private func policyCandidate(
+        id: String,
+        disposition: DeveloperCleanupDisposition,
+        ownerActive: Bool
+    ) -> DeveloperCleanupCandidate {
+        DeveloperCleanupCandidate(
+            id: id,
+            titleKey: id,
+            owner: "test",
+            url: tempHome.appendingPathComponent(id),
+            allocatedSize: 1,
+            kind: .rebuildableCache,
+            disposition: disposition,
+            ownerActive: ownerActive,
+            policyNoteKey: "test"
+        )
+    }
+
     private func createFile(relativePath: String, bytes: Int) throws {
         let url = tempHome.appendingPathComponent(relativePath)
         try FileManager.default.createDirectory(

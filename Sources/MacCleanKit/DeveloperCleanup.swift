@@ -13,10 +13,12 @@ public enum DeveloperCleanupKind: String, Sendable, CaseIterable {
 
 /// The most aggressive action CatCleaner may recommend for a candidate.
 ///
-/// V1 is scan-only; these values describe policy and are not execution hooks.
+/// Execution authority is intentionally separate: even `.safeWhenInactive`
+/// candidates require an explicit stable-ID allowlist entry before the app can
+/// offer a cleanup action.
 public enum DeveloperCleanupDisposition: String, Sendable, CaseIterable {
-    /// Rebuildable data. A future cleanup action may run only while its owner is
-    /// inactive and should prefer the owning tool's cleanup command.
+    /// Rebuildable data. Cleanup may run only while its owner is inactive and
+    /// must use a separately allowlisted execution method.
     case safeWhenInactive
 
     /// Recovery/snapshot/release history that needs a retention index or other
@@ -26,6 +28,56 @@ public enum DeveloperCleanupDisposition: String, Sendable, CaseIterable {
     /// Stateful data such as VM disks, container volumes, or user sessions.
     /// Report size only; never present as one-click junk.
     case reportOnly
+}
+
+public enum DeveloperCleanupExecutionMethod: String, Sendable, Equatable {
+    /// Move the exact catalogued root to the macOS Trash through CleaningEngine.
+    /// This is recoverable and does not claim disk space until Trash is emptied.
+    case trashExactRoot
+
+    /// Delegate CatDesk build-cache cleanup to its bounded retention-aware GC
+    /// helper instead of deleting the whole build-cache root.
+    case catDeskBuildCacheGC
+}
+
+/// Pure allowlist separating discovery from destructive capability.
+///
+/// A new scanner definition does not become executable merely by using
+/// `.safeWhenInactive`; its stable ID must also be listed here. Runtime
+/// execution performs a fresh scan and uses the fresh canonical path.
+public enum DeveloperCleanupExecutionPolicy {
+    private static let trashExactRootIDs: Set<String> = [
+        "codex-cache",
+        "npm-content-cache",
+        "npx-ephemeral-cache",
+        "pip-cache",
+        "homebrew-cache",
+        "playwright-browsers",
+        "node-gyp-cache",
+        "cargo-registry",
+        "cargo-git",
+        // "chrome-cache" intentionally omitted: ~/Library/Caches/Google is
+        // broader than one app, so owner coverage is not yet precise enough
+        // for executable cleanup.
+        "alpha-cache",
+    ]
+
+    public static func configuredMethod(forID id: String) -> DeveloperCleanupExecutionMethod? {
+        if id == "catdesk-build-cache" {
+            return .catDeskBuildCacheGC
+        }
+        if trashExactRootIDs.contains(id) {
+            return .trashExactRoot
+        }
+        return nil
+    }
+
+    public static func method(
+        for candidate: DeveloperCleanupCandidate
+    ) -> DeveloperCleanupExecutionMethod? {
+        guard candidate.canBecomeCleanable else { return nil }
+        return configuredMethod(forID: candidate.id)
+    }
 }
 
 public struct DeveloperCleanupCandidate: Identifiable, Sendable, Equatable {

@@ -24,7 +24,7 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - complete-link 保守分群，避免 A≈B、B≈C 就誤把 A/B/C 全部合成一群
   - 嚴格／平衡／寬鬆三個人工審查門檻
   - 不預選、不刪除、不丟垃圾桶、不 APFS consolidate
-- 新增「開發者清理」scan-only 模組：
+- 新增「開發者清理」保守執行模組：
   - CatDesk build/recovery/snapshots
   - Codex cache/sessions
   - npm / npx / pip / Homebrew / node-gyp / Cargo
@@ -34,9 +34,13 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - Docker data
   - Alpha Consensus cache / retired runtimes
 - Developer Cleanup 不是單純依路徑判斷垃圾，而是分成：
-  - `safeWhenInactive`：可重建，但 owner 執行中不可動。
-  - `retentionReview`：恢復、快照、模型或版本歷史，需 retention 證據。
+  - `safeWhenInactive`：可重建，但 owner 執行中不可動；仍須 stable-ID execution allowlist 才會出現手動清理選項。
+  - `retentionReview`：恢復、快照、模型或版本歷史，需 retention 證據，不提供一鍵清理。
   - `reportOnly`：VM、容器、sessions 等 stateful data，只報告不一鍵刪除。
+- 執行策略：
+  - 一般 allowlisted cache root：再次掃描確認 owner inactive 後，透過既有 CleaningEngine 移到 macOS 垃圾桶。
+  - CatDesk build cache：只呼叫 `catdesk-build-cache-gc --apply`，不刪整個 build-cache root。
+  - 預設不勾選；每次清理前重新驗證；廣義 `~/Library/Caches/Google` 目前刻意不開放執行。
 - Developer Cleanup 的容量探測最多 4 路並行；已修正大型 `ps` 輸出可能造成的 pipe deadlock。
 - CatCleaner 不再繼承 Mac Sai 的 Apple Developer Team ID；privileged/XPC trust 預設 fail-closed。
 - upstream 更新檢查已停用，避免 CatCleaner 誤提示 Mac Sai release。
