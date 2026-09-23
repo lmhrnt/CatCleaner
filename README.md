@@ -24,6 +24,12 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - Preferences / Containers / Group Containers / Keychain 不列入 orphan 清理
   - 同 vendor namespace 仍有已安裝 App 時保守保留 shared service/cache
   - reverse-DNS 格式收緊，避免 `catdesk-supervisor.launchd.err` 類一般 log 檔誤判
+- Space Lens 磁碟分析強化：
+  - 掃描進度改為不定進度 + 實際已枚舉項目數，不再顯示固定 50% 的假百分比
+  - 可切換「個人資料夾」與目前已掛載磁碟/磁碟映像
+  - 掃描 Macintosh HD 時明確剪掉 `/Volumes`，避免把外接磁碟、DMG 或另一個 Macintosh HD mount 重複計入
+  - 其他巢狀掛載點以 filesystem device boundary 阻擋；選定外接磁碟後則只掃該 volume 自身
+  - 切換 volume 或取消掃描會用 generation token 丟棄舊掃描回傳，避免舊結果覆寫新畫面
 - 啟動項管理強化：
   - System Events 讀取改為 JXA JSON，不再把 login-item 顯示名稱誤當 bundle ID
   - bundle ID 改由實際 App path / Info.plist 解析

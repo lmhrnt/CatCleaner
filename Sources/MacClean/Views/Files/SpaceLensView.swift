@@ -7,7 +7,10 @@ struct SpaceLensView: View {
     @State private var isScanning = false
     @State private var scanTask: Task<Void, Never>?
     @State private var nav = SpaceLensNavigation(root: MCConstants.home)
-    @State private var selectedVolume: URL = URL(filePath: "/")
+    @State private var selectedVolume: URL = MCConstants.home
+    @State private var availableVolumes: [VolumeInfo] = []
+    @State private var filesScanned = 0
+    @State private var scanGeneration = UUID()
 
     private let scanner = FileTreeScanner()
 
@@ -25,6 +28,18 @@ struct SpaceLensView: View {
             onScan: startScan,
             canScan: !isScanning
         )
+        .task {
+            availableVolumes = VolumeInfo.mountedVolumes()
+        }
+        .onChange(of: selectedVolume) { _, newRoot in
+            scanTask?.cancel()
+            scanGeneration = UUID()
+            nav = SpaceLensNavigation(root: newRoot)
+            rootNode = nil
+            treemapRects = []
+            filesScanned = 0
+            isScanning = false
+        }
     }
 
     private var header: some View {
@@ -47,6 +62,28 @@ struct SpaceLensView: View {
                 }
             }
             Spacer()
+
+            Picker("", selection: $selectedVolume) {
+                Text(L10n.tr(
+                    "个人资料夹",
+                    "Home Folder",
+                    "Домашняя папка"
+                ))
+                .tag(MCConstants.home)
+
+                ForEach(availableVolumes) { volume in
+                    Text(
+                        volume.name
+                            + " · "
+                            + FileSizeFormatter.format(volume.totalCapacity)
+                    )
+                    .tag(volume.url)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 230)
+            .disabled(isScanning)
+
             if !isScanning {
                 Button(L10n.tr("扫描", "Scan", "Сканировать")) { startScan() }
                     .buttonStyle(SuperEllipseButtonStyle(
@@ -100,9 +137,31 @@ struct SpaceLensView: View {
     private var content: some View {
         if isScanning {
             Spacer()
-            ScanProgressRing(progress: 0.5, phase: L10n.tr("正在扫描磁盘...", "Scanning disk...", "Сканирование диска..."), theme: .files)
+
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.large)
+                    .scaleEffect(1.25)
+
+                Text(L10n.tr(
+                    "正在扫描磁盘...",
+                    "Scanning disk...",
+                    "Сканирование диска..."
+                ))
+                .font(.system(size: 14, weight: .semibold))
+
+                Text(L10n.tr(
+                    "已扫描 \(filesScanned) 项",
+                    "\(filesScanned) items scanned",
+                    "Просканировано объектов: \(filesScanned)"
+                ))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+            }
+
             Button(L10n.tr("取消", "Cancel", "Отмена")) {
                 scanTask?.cancel()
+                scanGeneration = UUID()
                 nav.cancelPendingNavigation()
                 isScanning = false
             }
@@ -215,10 +274,23 @@ struct SpaceLensView: View {
 
     private func startScan() {
         scanTask?.cancel()
+        let generation = UUID()
+        scanGeneration = generation
+        filesScanned = 0
         isScanning = true
+
+        let root = nav.current
         scanTask = Task {
-            let node = await scanner.scanWithSizeAggregation(root: nav.current)
-            guard !Task.isCancelled else { return }
+            let node = await scanner.scanWithSizeAggregation(
+                root: root,
+                onProgress: { count in
+                    Task { @MainActor in
+                        guard scanGeneration == generation else { return }
+                        filesScanned = count
+                    }
+                }
+            )
+            guard !Task.isCancelled, scanGeneration == generation else { return }
             rootNode = node
 
             let treemapNodes = node.children

@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import MacCleanKit
 
 public actor FileTreeScanner {
@@ -40,12 +41,20 @@ public actor FileTreeScanner {
         }
     }
 
-    public func scanWithSizeAggregation(root: URL) async -> FileNode {
+    public func scanWithSizeAggregation(
+        root: URL,
+        onProgress: @Sendable (Int) -> Void = { _ in }
+    ) async -> FileNode {
         let keys = resourceKeys
-        let rootNode = FileNode(url: root, name: root.lastPathComponent)
+        let standardizedRoot = root.standardizedFileURL
+        let rootNode = FileNode(
+            url: standardizedRoot,
+            name: standardizedRoot.lastPathComponent
+        )
+        let rootDeviceID = Self.filesystemDeviceID(of: standardizedRoot)
 
         guard let enumerator = FileManager.default.enumerator(
-            at: root,
+            at: standardizedRoot,
             includingPropertiesForKeys: Array(keys),
             options: [.skipsPackageDescendants]
         ) else {
@@ -72,7 +81,7 @@ public actor FileTreeScanner {
             return p
         }
 
-        var nodeMap: [String: FileNode] = [key(root): rootNode]
+        var nodeMap: [String: FileNode] = [key(standardizedRoot): rootNode]
         var iterationCount = 0
 
         while let obj = enumerator.nextObject() {
@@ -80,6 +89,7 @@ public actor FileTreeScanner {
 
             iterationCount += 1
             if iterationCount % 200 == 0 {
+                onProgress(iterationCount)
                 await Task.yield()
             }
 
@@ -87,6 +97,20 @@ public actor FileTreeScanner {
             guard let values = try? fileURL.resourceValues(forKeys: keys) else { continue }
             let size = UInt64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? values.fileSize ?? 0)
             let isDir = values.isDirectory ?? false
+
+            if isDir {
+                let childDeviceID = Self.filesystemDeviceID(of: fileURL)
+                if Self.shouldPruneMountedDirectory(
+                    root: standardizedRoot,
+                    child: fileURL,
+                    rootDeviceID: rootDeviceID,
+                    childDeviceID: childDeviceID
+                ) {
+                    enumerator.skipDescendants()
+                    continue
+                }
+            }
+
             let ext = values.name?.components(separatedBy: ".").last?.lowercased() ?? fileURL.pathExtension.lowercased()
 
             let node = FileNode(
@@ -107,8 +131,44 @@ public actor FileTreeScanner {
             }
         }
 
+        onProgress(iterationCount)
         rootNode.computeTotalSize()
         return rootNode
+    }
+
+    static func shouldPruneMountedDirectory(
+        root: URL,
+        child: URL,
+        rootDeviceID: UInt64?,
+        childDeviceID: UInt64?
+    ) -> Bool {
+        let rootPath = root.standardizedFileURL.path(percentEncoded: false)
+        let childPath = child.standardizedFileURL.path(percentEncoded: false)
+
+        // A root-volume scan must never descend into /Volumes. That directory
+        // contains separately mounted external disks, disk images, and can
+        // even expose another mount of "Macintosh HD" with the same st_dev,
+        // so a device-ID check alone cannot prevent double counting.
+        if rootPath == "/" && (childPath == "/Volumes" || childPath.hasPrefix("/Volumes/")) {
+            return true
+        }
+
+        // For all other nested mount points, a different filesystem device is
+        // a clear boundary. This also keeps a Home-folder scan from silently
+        // traversing a FUSE/network/external mount nested below the home tree.
+        if let rootDeviceID, let childDeviceID, rootDeviceID != childDeviceID {
+            return true
+        }
+
+        return false
+    }
+
+    private static func filesystemDeviceID(of url: URL) -> UInt64? {
+        var metadata = stat()
+        guard lstat(url.path(percentEncoded: false), &metadata) == 0 else {
+            return nil
+        }
+        return UInt64(metadata.st_dev)
     }
 
     private static func makeFileItem(from url: URL, keys: Set<URLResourceKey>) -> FileItem? {
