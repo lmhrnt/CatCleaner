@@ -9,6 +9,16 @@ feed, Homebrew tap, or visual branding.
 
 ## Current release state
 
+Run the read-only readiness audit first:
+
+```bash
+./scripts/release-readiness.sh
+```
+
+Exit code `0` means required public-release prerequisites are satisfied. Exit
+code `2` means the release remains on HOLD. Optional distribution/branding
+items are reported separately as warnings.
+
 The following are deliberately fail-closed:
 
 - `.github/workflows/release.yml`
