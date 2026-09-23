@@ -1,87 +1,162 @@
-name: CI
+name: CatCleaner CI
 
-# Build + test on PRs (and on demand). We deliberately do NOT run on push to
-# main: main is the product of already-tested PRs, and the Release workflow
-# re-tests before it signs and notarizes a tag. This avoids a redundant build
-# on every merge.
 on:
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_dispatch:
 
 jobs:
   build-and-test:
-    name: Build & Test
+    name: Build, Test & Bundle
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          uname -m
+
+      - name: CatCleaner build preflight
+        run: |
+          ./scripts/build-preflight.sh --app
+          ./scripts/build-preflight.sh --tests
 
       - name: Verify VERSION ↔ MCConstants.appVersion sync
         run: bash scripts/check-version-sync.sh
 
-      - name: Build
-        run: swift build
+      - name: Build core
+        run: swift build --target MacCleanKit
 
-      - name: Run Tests (XCTest with code coverage)
+      - name: Build app products
+        run: |
+          swift build --product MacClean
+          swift build --product MacCleanMenu
+
+      - name: Run XCTest suite with code coverage
         run: swift test --enable-code-coverage
 
-      - name: Sanity-check coverage report exists
+      - name: Verify coverage profile exists
         run: |
           PROF=$(find .build -name '*.profdata' | head -1)
           if [ -z "$PROF" ]; then
-            echo "::error::No coverage profile found — coverage instrumentation may have broken"
+            echo "::error::No coverage profile found"
             exit 1
           fi
           echo "Coverage profile: $PROF"
 
-      - name: Smoke test for safety-critical files
+      - name: Build native ad-hoc CatCleaner.app bundle
         run: |
-          # Verify the safety-critical files exist and have substantial test coverage.
-          # This is a heuristic guard: if SafetyGuard.swift or PlistJunkFilter.swift
-          # disappear, or if their tests vanish, this step fails loudly.
-          test -f Sources/MacCleanKit/SafetyGuard.swift || { echo "::error::SafetyGuard.swift missing"; exit 1; }
-          test -f Sources/MacCleanKit/PlistJunkFilter.swift || { echo "::error::PlistJunkFilter.swift missing"; exit 1; }
-          test -f Tests/MacCleanKitTests/SafetyGuardTests.swift || { echo "::error::SafetyGuard tests missing"; exit 1; }
-          test -f Tests/MacCleanKitTests/PlistJunkFilterTests.swift || { echo "::error::PlistJunkFilter tests missing"; exit 1; }
-          test -f Tests/MacCleanTests/CleaningEngineTests.swift || { echo "::error::CleaningEngine tests missing"; exit 1; }
-          echo "All safety-critical test files present."
+          BUILD_ARCHS="--arch $(uname -m)" ./scripts/build-dmg.sh --app-only
+
+      - name: Verify CatCleaner.app bundle identity
+        run: |
+          APP=".build/dmg/CatCleaner.app"
+          MENU="$APP/Contents/Library/LoginItems/MacCleanMenu.app"
+
+          test -d "$APP"
+          test -d "$MENU"
+
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "com.catcleaner.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$MENU/Contents/Info.plist")" = "com.catcleaner.menu"
+
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$APP/Contents/Info.plist" |
+            grep -Fx 'catcleaner'
+
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleLocalizations' "$APP/Contents/Info.plist" |
+            grep -F 'zh-Hant-TW'
+
+          codesign --verify --deep --strict "$APP"
+
+          if find "$APP" -type f -maxdepth 8 -print0 |
+             xargs -0 strings 2>/dev/null |
+             grep -E 'com\.macclean|macclean://|brew upgrade --cask mac-sai' ; then
+            echo "::error::Upstream runtime identity leaked into CatCleaner.app"
+            exit 1
+          fi
+
+      - name: Safety-critical file presence
+        run: |
+          required=(
+            Sources/MacCleanKit/SafetyGuard.swift
+            Sources/MacCleanKit/PlistJunkFilter.swift
+            Tests/MacCleanKitTests/SafetyGuardTests.swift
+            Tests/MacCleanKitTests/PlistJunkFilterTests.swift
+            Tests/MacCleanTests/CleaningEngineTests.swift
+            Tests/MacCleanTests/ReleaseIsolationTests.swift
+            Tests/MacCleanKitTests/DeveloperCleanupTests.swift
+            Tests/MacCleanKitTests/SimilarPhotoGroupingTests.swift
+          )
+          for path in "${required[@]}"; do
+            test -f "$path" || {
+              echo "::error::Safety-critical file missing: $path"
+              exit 1
+            }
+          done
 
   security-audit:
-    name: Security Audit
+    name: Safety & Downstream Isolation Audit
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
 
-      - name: Check for hardcoded secrets
+      - name: Check for likely hardcoded secrets
         run: |
-          echo "Scanning for potential secrets..."
-          if grep -rn "password\|secret\|api_key\|token" Sources/ --include="*.swift" | grep -v "//\|Password\|password:\|\.password\|kSecAttr\|SecItem\|Keychain\|saved passwords"; then
-            echo "::warning::Potential secrets found in source code"
+          if rg -n --glob '*.swift'             '(api[_-]?key|client[_-]?secret|password|token)\s*[:=]\s*"[^"]{8,}"'             Sources; then
+            echo "::error::Potential hardcoded secret found"
             exit 1
           fi
-          echo "No secrets found."
+          echo "No likely hardcoded Swift secrets found."
 
-      - name: Check SafetyGuard integrity
+      - name: Verify downstream runtime identity isolation
         run: |
-          echo "Verifying SafetyGuard protections..."
-          grep -c "protectedPaths\|isProtected\|safePrefixes" Sources/MacCleanKit/SafetyGuard.swift
-          UNSAFE=$(grep -rn "removeItem\|trashItem" Sources/MacClean/ --include="*.swift" | grep -v "SafetyGuard\|CleaningEngine\|SecureEraser\|MaintenanceModule\|UninstallerView\|dryRun\|// " | grep -v "Test" || true)
+          forbidden=$(rg -n             'com\.macclean|macclean://|brew upgrade --cask mac-sai|Mac Sai\.app|MacSai-'             Sources scripts Package.swift 2>/dev/null || true)
+          if [ -n "$forbidden" ]; then
+            echo "$forbidden"
+            echo "::error::Upstream runtime/release identity leaked into CatCleaner"
+            exit 1
+          fi
+
+          rg -n 'public static let updateChecksEnabled = false'             Sources/MacCleanKit/Constants.swift >/dev/null
+          rg -n 'public static let teamIdentifier: String\? = nil'             Sources/MacCleanKit/Constants.swift >/dev/null
+
+      - name: Verify Smart Scan preselection stays fail-closed
+        run: |
+          if rg -n 'autoSelect:\s*true' Sources; then
+            echo "::error::Product code must not force autoSelect=true"
+            exit 1
+          fi
+          if rg -n 'LanguageFilesCategory\(\)'             Sources/MacClean/Modules/SystemJunk/SystemJunkModule.swift; then
+            echo "::error::Language-file deletion must remain unregistered"
+            exit 1
+          fi
+
+      - name: Check deletion surfaces
+        run: |
+          UNSAFE=$(rg -n             'removeItem\(|trashItem\('             Sources/MacClean --glob '*.swift' |
+            grep -vE 'SafetyGuard|CleaningEngine|SecureEraser|MaintenanceModule|UninstallerView|RemovedAppLeftoversView|DeveloperCleanupExecutor|dryRun|// ' || true)
           if [ -n "$UNSAFE" ]; then
-            echo "::warning::File deletion found outside SafetyGuard/CleaningEngine/Shredder:"
+            echo "::warning::Review file deletion outside canonical cleanup paths:"
             echo "$UNSAFE"
           fi
-          echo "SafetyGuard checks passed."
 
-      - name: Verify no telemetry
+      - name: Verify network surface is bounded and non-telemetry
         run: |
-          echo "Verifying zero network calls..."
-          NETWORK=$(grep -rnE "URLSession|NSURLConnection|URLRequest" Sources/MacCleanKit Sources/MacClean/Modules Sources/MacClean/Core --include="*.swift" | grep -v "// " | grep -v "URLSession.shared.data" || true)
-          # Note: UpdaterModule uses URLSession to fetch Sparkle appcasts. That's user-initiated only.
-          if echo "$NETWORK" | grep -v "UpdaterModule.swift" | grep -q "URLSession"; then
-            echo "::warning::Unexpected network usage detected:"
-            echo "$NETWORK"
+          NETWORK=$(rg -l             'URLSession|URLRequest|NSURLConnection|NWConnection'             Sources/MacCleanKit Sources/MacClean --glob '*.swift' | sort)
+
+          echo "$NETWORK"
+
+          unexpected=$(echo "$NETWORK" |
+            grep -vE '^Sources/MacCleanKit/UpdateChecker\.swift$|^Sources/MacClean/Modules/Updater/UpdaterModule\.swift$' || true)
+
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unexpected network-capable source file(s):"
+            echo "$unexpected"
+            exit 1
           fi
-          echo "Network audit done — only UpdaterModule should fetch appcasts."
+
+          rg -n 'public static let updateChecksEnabled = false'             Sources/MacCleanKit/Constants.swift >/dev/null
+          echo "Network surface is limited to disabled self-update checks and the user-initiated updater module."
