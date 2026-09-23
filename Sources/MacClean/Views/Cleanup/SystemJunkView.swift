@@ -243,7 +243,7 @@ struct SystemJunkView: View {
                         .foregroundStyle(.primary.opacity(0.5))
                         .padding(.top, 2)
                 }
-                Text(L10n.tr("完整日志：~/Library/Logs/MacClean/operations.log", "Full log: ~/Library/Logs/MacClean/operations.log", "Полный журнал: ~/Library/Logs/MacClean/operations.log"))
+                Text(L10n.tr("完整日志：~/Library/Logs/CatCleaner/operations.log", "Full log: ~/Library/Logs/CatCleaner/operations.log", "Полный журнал: ~/Library/Logs/CatCleaner/operations.log"))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.primary.opacity(0.45))
                     .padding(.top, 4)

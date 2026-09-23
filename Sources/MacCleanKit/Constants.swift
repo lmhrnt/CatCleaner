@@ -1,25 +1,25 @@
 import Foundation
 
 public enum MCConstants {
-    public static let appName = "Mac Sai"
-    public static let bundleIdentifier = "com.macclean.app"
-    public static let helperBundleIdentifier = "com.macclean.helper"
-    public static let menuBundleIdentifier = "com.macclean.menu"
+    public static let appName = "CatCleaner"
+    public static let bundleIdentifier = "com.catcleaner.app"
+    public static let helperBundleIdentifier = "com.catcleaner.helper"
+    public static let menuBundleIdentifier = "com.catcleaner.menu"
 
-    /// Apple Developer Team ID. The XPC code-signing requirements pin this so
-    /// only our real Developer-ID-signed binaries can talk to the root helper.
-    /// An `identifier`-only requirement is forgeable: any local process can
-    /// ad-hoc sign itself with our bundle id and satisfy it, then drive the
-    /// root RPCs — a local privilege escalation. Pinning the Apple anchor and
-    /// this Team ID closes that, because an attacker cannot obtain a Developer
-    /// ID certificate issued to our team.
-    public static let teamIdentifier = "H3XLS95QV4"
+    /// CatCleaner intentionally does not inherit the upstream project's Apple
+    /// Developer Team ID. A downstream release must inject its own Team ID
+    /// before any privileged/XPC trust path is enabled.
+    ///
+    /// Leaving this nil is fail-closed: callers cannot accidentally construct
+    /// a trust requirement that authenticates binaries signed by the upstream
+    /// project.
+    public static let teamIdentifier: String? = nil
 
-    /// Code-signing requirement a connecting XPC peer must satisfy, used by
-    /// both the helper listener (validating callers) and the client connection
-    /// (validating the helper). Defined once so the two sides cannot drift.
-    public static func codeSigningRequirement(for identifier: String) -> String {
-        "identifier \"\(identifier)\" and anchor apple generic and "
+    /// Builds the strict Developer-ID requirement for a future privileged/XPC
+    /// peer. Returns nil until CatCleaner has its own configured signing team.
+    public static func codeSigningRequirement(for identifier: String) -> String? {
+        guard let teamIdentifier else { return nil }
+        return "identifier \"\(identifier)\" and anchor apple generic and "
             + "certificate leaf[subject.OU] = \"\(teamIdentifier)\""
     }
     /// Per-CHUNK safety net enforced by SafetyGuard.validateDeletion.
@@ -200,7 +200,7 @@ public enum MCConstants {
 
     // MARK: - Log File Path
 
-    public static let operationLogDir = userLogs.appending(path: "MacClean")
+    public static let operationLogDir = userLogs.appending(path: "CatCleaner")
     public static let operationLogFile = operationLogDir.appending(path: "operations.log")
 
     // MARK: - Project links
@@ -209,6 +209,9 @@ public enum MCConstants {
     public static let issuesURL = URL(string: "https://github.com/iliyami/MacSai/issues/new/choose")!
     public static let releasesURL = URL(string: "https://github.com/iliyami/MacSai/releases")!
     public static let latestReleaseAPI = URL(string: "https://api.github.com/repos/iliyami/MacSai/releases/latest")!
+    /// Downstream CatCleaner must not advertise upstream Mac Sai releases.
+    /// Enable only after CatCleaner owns a signed release feed.
+    public static let updateChecksEnabled = false
     /// Homebrew's public API for the official cask. Its `version` reflects what
     /// `brew upgrade --cask mac-sai` can actually install right now (autobump
     /// lags GitHub releases by a few days), so Homebrew installs check this
@@ -223,5 +226,5 @@ public enum MCConstants {
     // plugin was tried (commit history) but doesn't work under multi-arch
     // `swift build --arch arm64 --arch x86_64` because xcbuild doesn't
     // execute plugins.
-    public static let appVersion = "1.21.0"
+    public static let appVersion = "0.1.0"
 }

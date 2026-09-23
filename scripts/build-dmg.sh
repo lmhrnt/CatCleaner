@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build, sign, notarize, and package Mac Sai as a DMG.
+# Build, sign, notarize, and package CatCleaner as a DMG.
 #
 # Usage:
 #   ./scripts/build-dmg.sh                    # Build with ad-hoc signing only
@@ -17,8 +17,8 @@
 
 set -euo pipefail
 
-APP_NAME="Mac Sai"
-BUNDLE_ID="com.macclean.app"
+APP_NAME="CatCleaner"
+BUNDLE_ID="com.catcleaner.app"
 VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0')}"
 # BUILD_DIR is resolved AFTER the build via `swift build --show-bin-path`:
 # multi-arch builds emit to .build/apple/Products/Release/ while single-arch
@@ -26,7 +26,7 @@ VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0
 # them silently bundles stale binaries from the other (a 1.9.0 app shipped in
 # a 1.10.0 wrapper during dev-install testing — binary and Info.plist drift).
 DMG_DIR=".build/dmg"
-DMG_NAME="MacSai-${VERSION}.dmg"
+DMG_NAME="CatCleaner-${VERSION}.dmg"
 
 # Detect signing capability
 APP_ONLY=false
@@ -44,13 +44,13 @@ if [[ "${1:-}" == "--notarize" ]]; then
     fi
     if [[ -z "${NOTARY_PROFILE:-}" ]]; then
         echo "ERROR: --notarize requires NOTARY_PROFILE env var"
-        echo "Set it up first: xcrun notarytool store-credentials 'MacClean' --apple-id YOU@example.com --team-id TEAMID"
+        echo "Set it up first: xcrun notarytool store-credentials 'CatCleaner' --apple-id YOU@example.com --team-id TEAMID"
         exit 1
     fi
     SIGNING_IDENTITY="$APPLE_DEVELOPER_ID"
 fi
 
-echo "=== Building Mac Sai v${VERSION} ==="
+echo "=== Building CatCleaner v${VERSION} ==="
 echo "Signing identity: $SIGNING_IDENTITY"
 echo "Notarize: $NOTARIZE"
 echo ""
@@ -84,6 +84,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
         <string>en</string>
         <string>ru</string>
         <string>zh-Hans</string>
+        <string>zh-Hant-TW</string>
     </array>
     <key>CFBundleExecutable</key>
     <string>MacClean</string>
@@ -117,10 +118,10 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>com.macclean.deeplink</string>
+            <string>com.catcleaner.deeplink</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>macclean</string>
+                <string>catcleaner</string>
             </array>
         </dict>
     </array>
@@ -156,17 +157,18 @@ cat > "${MENU_APP}/Contents/Info.plist" << MENU_PLIST
         <string>en</string>
         <string>ru</string>
         <string>zh-Hans</string>
+        <string>zh-Hant-TW</string>
     </array>
     <key>CFBundleExecutable</key>
     <string>MacCleanMenu</string>
     <key>CFBundleIdentifier</key>
-    <string>com.macclean.menu</string>
+    <string>com.catcleaner.menu</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Mac Sai Menu</string>
+    <string>CatCleaner Menu</string>
     <key>CFBundleDisplayName</key>
-    <string>Mac Sai Menu</string>
+    <string>CatCleaner Menu</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -238,7 +240,7 @@ fi
 # app (Homebrew/DMG installs put a fresh copy in /Applications) verifies
 # OFFLINE. Previously only the DMG was stapled and the app relied on an online
 # Gatekeeper check on first launch; when that check didn't complete, macOS
-# showed "Apple could not verify Mac Sai..." and blocked it. Stapling the app
+# showed "Apple could not verify CatCleaner..." and blocked it. Stapling the app
 # removes that online dependency. This is a separate submission from the DMG
 # below, but it is the only way to ship a DMG that contains a stapled app.
 if [[ "$NOTARIZE" == "true" ]]; then

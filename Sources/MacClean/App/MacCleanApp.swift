@@ -22,7 +22,7 @@ struct MacCleanApp: App {
 
     var body: some Scene {
         // A single Window (not WindowGroup) so reopening the app, or following
-        // a macclean:// deeplink from the menu bar while a window already
+        // a catcleaner:// deeplink from the menu bar while a window already
         // exists, reuses the one window instead of spawning a second. Combined
         // with LSMultipleInstancesProhibited in Info.plist (which keeps macOS
         // from launching a second process), the user never ends up with two
@@ -46,10 +46,10 @@ struct MacCleanApp: App {
                     syncMenuBarOnLaunch()
                 }
                 .onOpenURL { url in
-                    // Expect exactly macclean://module/<slug> — one path
+                    // Expect exactly catcleaner://module/<slug> — one path
                     // segment (pathComponents is ["/", "<slug>"]). Reject
                     // malformed multi-segment URLs rather than guessing.
-                    guard url.scheme == "macclean", url.host == "module",
+                    guard url.scheme == "catcleaner", url.host == "module",
                           url.pathComponents.count == 2,
                           let id = url.pathComponents.last,
                           let item = SidebarItem(deepLinkID: id) else { return }

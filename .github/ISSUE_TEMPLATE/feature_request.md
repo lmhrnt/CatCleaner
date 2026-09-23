@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature for Mac Sai
+about: Suggest a new feature for CatCleaner
 title: '[Feature] '
 labels: enhancement
 ---

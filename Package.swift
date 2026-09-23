@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "MacClean",
+    name: "CatCleaner",
     platforms: [
         .macOS(.v14)
     ],

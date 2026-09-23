@@ -1,0 +1,18 @@
+CatCleaner
+==========
+
+CatCleaner is a downstream derivative of Mac Sai.
+
+Upstream project:
+  Mac Sai
+  https://github.com/iliyami/MacSai
+
+The upstream source is distributed under the BSD 3-Clause License.
+The original copyright and license text are preserved in LICENSE.
+
+CatCleaner is an independent downstream product. The Mac Sai name and
+contributors' names are not used to endorse CatCleaner.
+
+Some internal Swift package target and executable names remain MacClean,
+MacCleanKit, and MacCleanMenu during the early fork stages to reduce
+regression risk. User-facing product identifiers are independently namespaced.

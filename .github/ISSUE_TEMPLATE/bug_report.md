@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug to help us improve Mac Sai
+about: Report a bug to help us improve CatCleaner
 title: '[Bug] '
 labels: bug
 ---
@@ -21,7 +21,7 @@ What actually happened.
 
 ## Environment
 - macOS version:
-- Mac Sai version:
+- CatCleaner version:
 - Mac model:
 - Full Disk Access granted: Yes / No
 

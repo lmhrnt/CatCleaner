@@ -103,9 +103,9 @@ public actor TipsEngine {
     }
 }
 
-/// Click-to-act on a tip. `open()` brings the main Mac Sai app to the
+/// Click-to-act on a tip. `open()` brings the main CatCleaner app to the
 /// foreground; `open(moduleID:)` additionally deep-links straight to the
-/// relevant module via the `macclean://module/<id>` URL scheme.
+/// relevant module via the `catcleaner://module/<id>` URL scheme.
 public enum TipAction {
     @MainActor
     public static func open() {
@@ -117,11 +117,11 @@ public enum TipAction {
 
 public extension TipAction {
     /// Foreground the main app and deep-link to a specific module via the
-    /// `macclean://module/<id>` URL scheme. Falls back to plainly opening
+    /// `catcleaner://module/<id>` URL scheme. Falls back to plainly opening
     /// the app when no module id is available.
     @MainActor
     static func open(moduleID: String?) {
-        guard let moduleID, let url = URL(string: "macclean://module/\(moduleID)") else {
+        guard let moduleID, let url = URL(string: "catcleaner://module/\(moduleID)") else {
             open()   // fallback: just foreground the app
             return
         }

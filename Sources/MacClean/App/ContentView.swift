@@ -122,14 +122,14 @@ struct ContentView: View {
             switch pending.action {
             case .brewCommand(let cmd):
                 Text(L10n.tr(
-                    "Mac Sai \(pending.version) 已发布。使用 Homebrew 升级：\n\(cmd)",
-                    "Mac Sai \(pending.version) is available. Upgrade with Homebrew:\n\(cmd)",
-                    "Доступна версия Mac Sai \(pending.version). Обновите через Homebrew:\n\(cmd)"))
+                    "CatCleaner \(pending.version) 已发布。使用 Homebrew 升级：\n\(cmd)",
+                    "CatCleaner \(pending.version) is available. Upgrade with Homebrew:\n\(cmd)",
+                    "Доступна версия CatCleaner \(pending.version). Обновите через Homebrew:\n\(cmd)"))
             case .openRelease:
                 Text(L10n.tr(
-                    "Mac Sai \(pending.version) 已发布。",
-                    "Mac Sai \(pending.version) is available.",
-                    "Доступна версия Mac Sai \(pending.version)."))
+                    "CatCleaner \(pending.version) 已发布。",
+                    "CatCleaner \(pending.version) is available.",
+                    "Доступна версия CatCleaner \(pending.version)."))
             }
         }
     }
@@ -205,6 +205,8 @@ struct ContentView: View {
             DuplicatesView()
         case .shredder:
             ShredderView()
+        case .developerCleanup:
+            DeveloperCleanupView()
         case .settings:
             SettingsPageView()
         }

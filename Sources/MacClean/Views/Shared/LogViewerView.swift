@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import MacCleanKit
 
-/// In-app viewer for `~/Library/Logs/MacClean/operations.log`. Surfaced
+/// In-app viewer for `~/Library/Logs/CatCleaner/operations.log`. Surfaced
 /// from the completion screen so users can read the [ERROR] lines that
 /// explain why some items couldn't be cleaned — and copy them onto a
 /// GitHub issue without leaving the app.
@@ -32,7 +32,7 @@ struct LogViewerView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.tr("活动日志", "Activity Log", "Журнал операций"))
                     .font(.system(size: 18, weight: .semibold))
-                Text(L10n.tr("~/Library/Logs/MacClean/operations.log — 30 天后自动清理", "~/Library/Logs/MacClean/operations.log — pruned after 30 days", "~/Library/Logs/MacClean/operations.log — удаляется через 30 дней"))
+                Text(L10n.tr("~/Library/Logs/CatCleaner/operations.log — 30 天后自动清理", "~/Library/Logs/CatCleaner/operations.log — pruned after 30 days", "~/Library/Logs/CatCleaner/operations.log — удаляется через 30 дней"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)

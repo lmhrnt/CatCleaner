@@ -41,7 +41,7 @@ public final class LaunchServicesService: @unchecked Sendable {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         plistPath = "\(home)/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist"
         backupDir = URL(fileURLWithPath: home)
-            .appending(path: "Library/Application Support/MacClean/LaunchServicesBackups")
+            .appending(path: "Library/Application Support/CatCleaner/LaunchServicesBackups")
         try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
     }
 

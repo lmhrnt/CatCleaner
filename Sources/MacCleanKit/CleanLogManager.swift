@@ -1,6 +1,6 @@
 import Foundation
 
-/// Filesystem-backed façade over `~/Library/Logs/MacClean/operations.log`.
+/// Filesystem-backed façade over `~/Library/Logs/CatCleaner/operations.log`.
 /// Used by the UI's log-viewer and by app startup for 30-day retention.
 ///
 /// Pure logic (parsing, pruning) lives in `LogPruner`. This type wraps

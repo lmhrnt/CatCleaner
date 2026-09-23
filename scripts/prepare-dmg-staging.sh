@@ -3,7 +3,7 @@
 #
 # Usage: ./scripts/prepare-dmg-staging.sh <staging-dir>
 #
-# The release DMG is built from a staging directory that holds Mac Sai.app.
+# The release DMG is built from a staging directory that holds CatCleaner.app.
 # Build-only artifacts (codesign entitlements, notarize zip leftovers) must
 # not ship, and a symlink to /Applications enables the standard
 # drag-and-drop install UX.

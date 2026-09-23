@@ -16,7 +16,7 @@ public final class FSEventMonitor: @unchecked Sendable {
     }
 
     private var stream: FSEventStreamRef?
-    private let queue = DispatchQueue(label: "com.macclean.fsevents")
+    private let queue = DispatchQueue(label: "com.catcleaner.fsevents")
     var changeHandler: (([FSChange]) -> Void)?
     private var latestEventID: UInt64 = 0
 
@@ -85,7 +85,7 @@ public final class FSEventMonitor: @unchecked Sendable {
             )
         ) else { return [] }
 
-        let historyQueue = DispatchQueue(label: "com.macclean.fshistory")
+        let historyQueue = DispatchQueue(label: "com.catcleaner.fshistory")
         FSEventStreamSetDispatchQueue(stream, historyQueue)
         FSEventStreamStart(stream)
 

@@ -21,7 +21,7 @@ struct AppPermissionsView: View {
                         .foregroundStyle(.primary)
                     Text(L10n.tr(
                         "按应用查看持有哪些隐私权限。这是只读列表——按钮会打开系统设置。本应用无法关闭权限。",
-                        "See which privacy grants each app holds. This list is read-only — buttons open System Settings. Mac Sai cannot turn a permission off.",
+                        "See which privacy grants each app holds. This list is read-only — buttons open System Settings. CatCleaner cannot turn a permission off.",
                         "Смотрите, какие разрешения есть у каждого приложения. Список только для чтения — кнопки открывают Системные настройки. Это приложение не может выключить разрешение."
                     ))
                     .font(.system(size: 12))

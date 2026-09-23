@@ -40,6 +40,7 @@ final class UpdateCoordinator {
     /// launch and on app-activation; the persisted last-check date throttles it
     /// to once per `UpdateScheduler.checkInterval`, and one popup per session.
     func runCheckIfDue() async {
+        guard MCConstants.updateChecksEnabled else { return }
         guard automaticChecksEnabled, pendingUpdate == nil else { return }
         guard UpdateScheduler.isCheckDue(now: Date(), lastCheck: lastCheck) else { return }
 

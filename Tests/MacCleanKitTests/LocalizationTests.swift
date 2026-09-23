@@ -19,6 +19,33 @@ final class LocalizationTests: AppLanguageTestCase {
         XCTAssertEqual(AppLanguage.preferredLanguage(for: "de-DE"), .en)
     }
 
+    func testTraditionalChineseTaiwanIsSelectableAndUsesTaiwanLocale() {
+        XCTAssertTrue(AppLanguage.allCases.contains(.zhHantTW))
+        XCTAssertEqual(AppLanguage.zhHantTW.rawValue, "zh-Hant-TW")
+        XCTAssertEqual(AppLanguage.zhHantTW.localeIdentifier, "zh-Hant-TW")
+        XCTAssertEqual(AppLanguage.zhHantTW.pickerLabel, "繁體中文（台灣）")
+    }
+
+    func testPreferredLanguageRecognizesTraditionalChineseIdentifiers() {
+        XCTAssertEqual(AppLanguage.preferredLanguage(for: "zh-TW"), .zhHantTW)
+        XCTAssertEqual(AppLanguage.preferredLanguage(for: "zh_Hant_TW"), .zhHantTW)
+        XCTAssertEqual(AppLanguage.preferredLanguage(for: "zh-HK"), .zhHantTW)
+        XCTAssertEqual(AppLanguage.preferredLanguage(for: "zh-MO"), .zhHantTW)
+        XCTAssertEqual(AppLanguage.preferredLanguage(for: "zh-Hans-CN"), .zhHans)
+        XCTAssertEqual(AppLanguage.preferredLanguage(for: "zh-CN"), .zhHans)
+    }
+
+    func testTraditionalChineseTaiwanTerminology() {
+        AppLanguage.current = .zhHantTW
+        XCTAssertEqual(L10n.tr("设置", "Settings", "Настройки"), "設定")
+        XCTAssertEqual(L10n.tr("系统缓存", "System Cache", "Системный кэш"), "系統快取")
+        XCTAssertEqual(L10n.tr("卸载器", "Uninstaller", "Деинсталлятор"), "解除安裝工具")
+        XCTAssertEqual(L10n.tr("废纸篓", "Trash", "Корзина"), "垃圾桶")
+        XCTAssertEqual(L10n.tr("大型文件", "Large Files", "Большие файлы"), "大型檔案")
+        XCTAssertEqual(L10n.tr("内存", "Memory", "Память"), "記憶體")
+        XCTAssertEqual(L10n.tr("磁盘", "Disk", "Диск"), "磁碟")
+    }
+
     func testThreeLanguageTranslation() {
         AppLanguage.current = .ru
         XCTAssertEqual(L10n.tr("设置", "Settings", "Настройки"), "Настройки")

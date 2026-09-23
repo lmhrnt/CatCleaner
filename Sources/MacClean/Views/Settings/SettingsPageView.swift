@@ -5,7 +5,7 @@ import MacCleanKit
 
 /// In-app Settings page rendered in the detail pane. Opened from the
 /// pinned sidebar footer, the Cmd-comma "Settings…" menu item, or
-/// macclean://module/settings. Replaced the separate Settings window
+/// catcleaner://module/settings. Replaced the separate Settings window
 /// (spec: docs/superpowers/specs/2026-06-05-settings-page-design.md).
 struct SettingsPageView: View {
     enum UpdateUIState: Equatable {
