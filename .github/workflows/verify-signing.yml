@@ -1,14 +1,122 @@
-name: CatCleaner Signing Verification (disabled)
+name: CatCleaner Signing Verification
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: catcleaner-signing-verification
+  cancel-in-progress: false
+
 jobs:
-  signing-disabled:
+  verify-signing:
     runs-on: macos-latest
     steps:
-      - name: Signing infrastructure not configured
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify source version contract
+        shell: bash
         run: |
-          echo "CatCleaner signing verification is intentionally disabled."
-          echo "Do not reuse the upstream Mac Sai notary profile or Developer Team ID."
-          exit 1
+          set -euo pipefail
+          ./scripts/check-version-sync.sh
+          git diff --exit-code
+          version="$(tr -d '[:space:]' < VERSION)"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "DMG_PATH=.build/CatCleaner-${version}.dmg" >> "$GITHUB_ENV"
+
+      - name: Require CatCleaner signing and notarization secrets
+        shell: bash
+        env:
+          CERTIFICATE_P12_BASE64: ${{ secrets.CATCLEANER_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CATCLEANER_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.CATCLEANER_APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.CATCLEANER_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.CATCLEANER_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          : "${CERTIFICATE_P12_BASE64:?missing CATCLEANER_CERTIFICATE_P12_BASE64}"
+          : "${CERTIFICATE_PASSWORD:?missing CATCLEANER_CERTIFICATE_PASSWORD}"
+          : "${APPLE_ID:?missing CATCLEANER_APPLE_ID}"
+          : "${APPLE_APP_PASSWORD:?missing CATCLEANER_APP_PASSWORD}"
+          : "${APPLE_TEAM_ID:?missing CATCLEANER_TEAM_ID}"
+          [[ "$APPLE_TEAM_ID" != "H3XLS95QV4" ]] || {
+            echo "Refusing upstream Mac Sai Developer Team ID." >&2
+            exit 78
+          }
+
+      - name: Configure ephemeral signing keychain
+        shell: bash
+        env:
+          CERTIFICATE_P12_BASE64: ${{ secrets.CATCLEANER_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CATCLEANER_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.CATCLEANER_APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.CATCLEANER_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.CATCLEANER_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/catcleaner-ci.keychain-db"
+          certificate="$RUNNER_TEMP/catcleaner-developer-id.p12"
+          keychain_password="$(uuidgen)"
+          profile="CatCleaner-CI-${GITHUB_RUN_ID}"
+
+          printf '%s' "$CERTIFICATE_P12_BASE64" | base64 -D > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12
+          security list-keychains -d user -s "$keychain"
+          security default-keychain -d user -s "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" >/dev/null
+
+          identity="$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+          [[ -n "$identity" ]] || {
+            echo "No Developer ID Application identity found in imported certificate." >&2
+            exit 78
+          }
+          [[ "$identity" == *"($APPLE_TEAM_ID)"* ]] || {
+            echo "Developer ID identity does not match CATCLEANER_TEAM_ID." >&2
+            exit 78
+          }
+          [[ "$identity" != *"H3XLS95QV4"* ]] || {
+            echo "Refusing upstream Mac Sai Developer ID." >&2
+            exit 78
+          }
+
+          xcrun notarytool store-credentials "$profile"             --apple-id "$APPLE_ID"             --team-id "$APPLE_TEAM_ID"             --password "$APPLE_APP_PASSWORD"             --keychain "$keychain"
+
+          echo "APPLE_DEVELOPER_ID=$identity" >> "$GITHUB_ENV"
+          echo "NOTARY_PROFILE=$profile" >> "$GITHUB_ENV"
+
+      - name: Build signed and notarized DMG
+        shell: bash
+        run: ./scripts/build-dmg.sh --notarize
+
+      - name: Verify Developer ID, Gatekeeper, and notarization tickets
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=".build/dmg/CatCleaner.app"
+          test -d "$app"
+          test -f "$DMG_PATH"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          spctl --assess --type execute --verbose=2 "$app"
+          xcrun stapler validate "$app"
+          xcrun stapler validate "$DMG_PATH"
+          shasum -a 256 "$DMG_PATH"
+
+      - name: Upload verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "CatCleaner-${{ env.VERSION }}-signing-verification"
+          path: ${{ env.DMG_PATH }}
+          if-no-files-found: error
+
+      - name: Remove ephemeral signing material
+        if: always()
+        shell: bash
+        run: |
+          security delete-keychain "$RUNNER_TEMP/catcleaner-ci.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/catcleaner-developer-id.p12"
