@@ -43,7 +43,10 @@ public struct LargeOldFilesModule: ScanModule {
             ),
         ]
 
-        let items = await scanner.scan(targets: targets)
+        async let standardItems = scanner.scan(targets: targets)
+        async let specialItems = LargeFileSpecialDiscovery.scan(minSize: minSize)
+
+        let items = await standardItems + specialItems
         let split = Self.splitLargeAndOld(items: items, minSize: minSize)
 
         return Self.makeResults(large: split.large, old: split.old).filteringUncleanable()
@@ -80,7 +83,18 @@ public struct LargeOldFilesModule: ScanModule {
         var old: [FileItem] = []
         let cutoff = now.addingTimeInterval(-oldThreshold)
 
-        for item in items where !item.isDirectory {
+        for item in items {
+            let kind = LargeFileKind.classify(item)
+            let directoryIsReviewableSpecial =
+                kind == .virtualMachines || kind == .iosBackups
+
+            // Generic directories are not large-file review items. The only
+            // directory-shaped items admitted here are the bounded special
+            // discoveries above (whole VM packages and whole iOS backups).
+            if item.isDirectory && !directoryIsReviewableSpecial {
+                continue
+            }
+
             if item.size >= minSize { large.append(item) }
             if let modDate = item.modificationDate, modDate < cutoff { old.append(item) }
         }

@@ -16,7 +16,11 @@ struct LargeOldFilesView: View {
     var body: some View {
         ModuleContainerView(
             title: L10n.tr("大文件与旧文件", "Large & Old Files", "Большие и старые файлы"),
-            subtitle: L10n.tr("查找大于 50 MB 且最近未访问的文件", "Find files larger than 50 MB that haven't been accessed recently", "Поиск файлов размером более 50 МБ, к которым давно не обращались"),
+            subtitle: L10n.tr(
+                "找出 50 MB 以上的大型文件，并按媒体、套件、虚拟机、iOS 备份等分类",
+                "Find files over 50 MB and review them by media, package, VM, iOS backup, and other categories",
+                "Находите файлы больше 50 МБ и просматривайте их по категориям: медиа, пакеты, ВМ, резервные копии iOS и другие"
+            ),
             theme: .files,
             emptyMessage: L10n.tr("未找到大文件或旧文件", "No large or old files found", "Большие или старые файлы не найдены"),
             results: results,
@@ -30,7 +34,15 @@ struct LargeOldFilesView: View {
             onScan: scan,
             onClean: clean,
             onCancelClean: { cleanTask?.cancel() },
-            onReset: reset
+            onReset: reset,
+            resultsContent: {
+                AnyView(
+                    LargeFileCategoryResultsView(
+                        results: results,
+                        selectedItems: $selectedItems
+                    )
+                )
+            }
         )
         .onAppear {
             if let e = appState.scanResultsStore.entry(for: .largeOldFiles) {

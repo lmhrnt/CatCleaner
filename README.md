@@ -44,6 +44,12 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - 同 vendor sibling 採保守保留，避免把共享 updater/framework 當成孤兒
   - 以標準 Applications 目錄 + LaunchServices 雙重交叉檢查；搬到其他資料夾或外接磁碟但仍已註冊的 App 也能阻擋誤判
   - 預設零選取；人工勾選後仍走 CleaningEngine Trash-first，可從垃圾桶復原
+- 強化「大型檔案」：
+  - 保留 50 MB 門檻與手動選取
+  - 新增影片、音訊、圖片、文件、壓縮檔、安裝套件、磁碟映像、虛擬機、iPhone/iPad 備份、其他分類
+  - MobileSync backup 與 VM package 以整包顯示，不拆成內部檔案
+  - VM/iOS backup 只掃 bounded 已知位置，不遞迴整個 ~/Library
+  - 所有大型/特殊資料仍預設零選取，清理走既有 Trash-first + SafetyGuard
 - 新增「相似照片」review-only 模組：
   - Apple Vision feature print 比較
   - 固定 Revision 1 以避免 SDK 升級時演算法默默漂移
