@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Darwin
 import MacCleanKit
 
 public struct OptimizationModule: ScanModule {
@@ -452,14 +453,61 @@ public final class AutoStartManager: @unchecked Sendable {
 
     private func togglePlistItem(_ item: AutoStartItem, enabled: Bool) throws {
         guard !item.isSystem else { throw ToggleError.systemItemReadOnly }
-        guard let configPath = item.configFilePath else { return }
-        let data = try Data(contentsOf: URL(fileURLWithPath: configPath))
-        guard var plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+        guard item.sourceType == .launchAgent,
+              let configPath = item.configFilePath
+        else {
+            throw ToggleError.systemItemReadOnly
+        }
+
+        let configURL = URL(fileURLWithPath: configPath).standardizedFileURL
+        guard Self.isSafeUserLaunchAgentConfig(configURL) else {
             throw ToggleError.unreadablePlist
         }
+
+        let data = try Data(contentsOf: configURL)
+        guard var plist = try PropertyListSerialization.propertyList(
+            from: data,
+            format: nil
+        ) as? [String: Any] else {
+            throw ToggleError.unreadablePlist
+        }
+
+        // Recheck immediately before mutation so a path that changed between
+        // read and write fails closed rather than following a replacement
+        // symlink outside ~/Library/LaunchAgents.
+        guard Self.isSafeUserLaunchAgentConfig(configURL) else {
+            throw ToggleError.unreadablePlist
+        }
+
         plist["Disabled"] = !enabled
-        let newData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
-        try newData.write(to: URL(fileURLWithPath: configPath))
+        let newData = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try newData.write(to: configURL)
+    }
+
+    static func isSafeUserLaunchAgentConfig(
+        _ url: URL,
+        expectedRoot: URL = MCConstants.userLaunchAgents
+    ) -> Bool {
+        let standardized = url.standardizedFileURL
+        let root = expectedRoot.standardizedFileURL
+
+        guard standardized.deletingLastPathComponent() == root,
+              standardized.pathExtension.lowercased() == "plist"
+        else {
+            return false
+        }
+
+        var metadata = stat()
+        guard lstat(standardized.path(percentEncoded: false), &metadata) == 0 else {
+            return false
+        }
+
+        let type = metadata.st_mode & S_IFMT
+        return type == S_IFREG
     }
 }
 

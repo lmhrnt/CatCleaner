@@ -145,12 +145,21 @@ public actor FileTreeScanner {
         let rootPath = root.standardizedFileURL.path(percentEncoded: false)
         let childPath = child.standardizedFileURL.path(percentEncoded: false)
 
-        // A root-volume scan must never descend into /Volumes. That directory
-        // contains separately mounted external disks, disk images, and can
-        // even expose another mount of "Macintosh HD" with the same st_dev,
-        // so a device-ID check alone cannot prevent double counting.
-        if rootPath == "/" && (childPath == "/Volumes" || childPath.hasPrefix("/Volumes/")) {
-            return true
+        // A root-volume scan must never descend into other mounted-volume
+        // namespaces. /Volumes contains external disks/disk images, while
+        // /System/Volumes contains APFS helper volumes such as Data. On modern
+        // macOS the root volume and /System/Volumes/Data can report the same
+        // st_dev, so device-ID checks alone do not prevent counting the same
+        // logical user data again through the Data mount.
+        if rootPath == "/" {
+            if childPath == "/Volumes" || childPath.hasPrefix("/Volumes/") {
+                return true
+            }
+            if childPath == "/System/Volumes"
+                || childPath.hasPrefix("/System/Volumes/")
+            {
+                return true
+            }
         }
 
         // For all other nested mount points, a different filesystem device is

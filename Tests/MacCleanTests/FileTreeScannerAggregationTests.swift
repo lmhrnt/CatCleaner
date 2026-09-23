@@ -5,6 +5,44 @@ import Foundation
 import MacCleanTestSupport
 
 final class FileTreeScannerAggregationTests: XCTestCase {
+    func testRootScanPrunesAPFSSystemVolumesEvenWhenDeviceIDsMatch() {
+        XCTAssertTrue(
+            FileTreeScanner.shouldPruneMountedDirectory(
+                root: URL(fileURLWithPath: "/"),
+                child: URL(fileURLWithPath: "/System/Volumes"),
+                rootDeviceID: 42,
+                childDeviceID: 42
+            )
+        )
+        XCTAssertTrue(
+            FileTreeScanner.shouldPruneMountedDirectory(
+                root: URL(fileURLWithPath: "/"),
+                child: URL(fileURLWithPath: "/System/Volumes/Data"),
+                rootDeviceID: 42,
+                childDeviceID: 42
+            )
+        )
+        XCTAssertTrue(
+            FileTreeScanner.shouldPruneMountedDirectory(
+                root: URL(fileURLWithPath: "/"),
+                child: URL(fileURLWithPath: "/Volumes/External"),
+                rootDeviceID: 42,
+                childDeviceID: 42
+            )
+        )
+    }
+
+    func testNormalSameDeviceChildIsNotPruned() {
+        XCTAssertFalse(
+            FileTreeScanner.shouldPruneMountedDirectory(
+                root: URL(fileURLWithPath: "/"),
+                child: URL(fileURLWithPath: "/Users"),
+                rootDeviceID: 42,
+                childDeviceID: 42
+            )
+        )
+    }
+
     func testAsyncAggregationSumsChildSizes() async throws {
         try await TestFixtures.withTempDir { dir in
             let a = dir.appending(path: "a")

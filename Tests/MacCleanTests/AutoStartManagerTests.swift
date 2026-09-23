@@ -141,6 +141,65 @@ final class AutoStartManagerTests: XCTestCase {
         XCTAssertNil(remembered?[appURL.path])
     }
 
+    func testLaunchAgentConfigGuardAcceptsOnlyDirectRegularPlists() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CatCleaner-LaunchAgents-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let regular = root.appendingPathComponent("com.example.good.plist")
+        try Data("<plist/>".utf8).write(to: regular)
+        XCTAssertTrue(
+            AutoStartManager.isSafeUserLaunchAgentConfig(
+                regular,
+                expectedRoot: root
+            )
+        )
+
+        let wrongExtension = root.appendingPathComponent("com.example.bad.txt")
+        try Data("x".utf8).write(to: wrongExtension)
+        XCTAssertFalse(
+            AutoStartManager.isSafeUserLaunchAgentConfig(
+                wrongExtension,
+                expectedRoot: root
+            )
+        )
+
+        let nestedDir = root.appendingPathComponent("nested")
+        try FileManager.default.createDirectory(
+            at: nestedDir,
+            withIntermediateDirectories: true
+        )
+        let nested = nestedDir.appendingPathComponent("com.example.nested.plist")
+        try Data("<plist/>".utf8).write(to: nested)
+        XCTAssertFalse(
+            AutoStartManager.isSafeUserLaunchAgentConfig(
+                nested,
+                expectedRoot: root
+            )
+        )
+
+        let outside = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CatCleaner-LaunchAgent-Target-\(UUID().uuidString).plist")
+        try Data("<plist/>".utf8).write(to: outside)
+        defer { try? FileManager.default.removeItem(at: outside) }
+
+        let symlink = root.appendingPathComponent("com.example.link.plist")
+        try FileManager.default.createSymbolicLink(
+            at: symlink,
+            withDestinationURL: outside
+        )
+        XCTAssertFalse(
+            AutoStartManager.isSafeUserLaunchAgentConfig(
+                symlink,
+                expectedRoot: root
+            )
+        )
+    }
+
     func testSystemLaunchAgentCannotToggle() {
         let item = AutoStartItem(
             name: "System Agent",
