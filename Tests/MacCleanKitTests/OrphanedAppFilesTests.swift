@@ -47,10 +47,22 @@ final class OrphanedAppFilesTests: XCTestCase {
 
     func testNonBundleIDNameIsNotFlagged() {
         // We only auto-flag clean reverse-DNS bundle ids, never arbitrary names.
-        for name in ["Google", "SomeApp", "cache.db", "a"] {
+        for name in [
+            "Google",
+            "SomeApp",
+            "cache.db",
+            "a",
+            "catdesk-supervisor.launchd.err",
+            "server.launchd.err",
+        ] {
             XCTAssertFalse(OrphanedAppFiles.isOrphan(bundleID: name, installedBundleIDs: []),
                            "\(name) is not a bundle id and must not be flagged")
         }
+    }
+
+    func testCountryCodeReverseDNSBundleIDIsAccepted() {
+        XCTAssertTrue(OrphanedAppFiles.isBundleIDLike("us.zoom.xos"))
+        XCTAssertTrue(OrphanedAppFiles.isBundleIDLike("io.example.tool"))
     }
 
     func testMatchingIsCaseInsensitive() {
@@ -58,11 +70,26 @@ final class OrphanedAppFilesTests: XCTestCase {
             bundleID: "COM.Example.App", installedBundleIDs: ["com.example.app"]))
     }
 
-    func testSiblingAppUnderSameCompanyIsStillOrphan() {
-        // Deleting Illustrator leftovers while Photoshop is installed is correct:
-        // we must NOT treat a shared company prefix as "in use".
-        XCTAssertTrue(OrphanedAppFiles.isOrphan(
+    func testSiblingAppUnderSameVendorNamespaceIsKeptConservatively() {
+        // A sibling cache/service may be vendor-shared infrastructure. For a
+        // deletion-oriented orphan scan, false negatives are safer than
+        // deleting a shared Adobe/Microsoft/Google/OpenAI component.
+        XCTAssertFalse(OrphanedAppFiles.isOrphan(
             bundleID: "com.adobe.illustrator",
             installedBundleIDs: ["com.adobe.photoshop"]))
+    }
+
+    func testSwiftToolchainInfrastructureIsNeverAppLeftover() {
+        XCTAssertFalse(OrphanedAppFiles.isOrphan(
+            bundleID: "org.swift.swiftpm",
+            installedBundleIDs: []
+        ))
+    }
+
+    func testDifferentVendorCanStillBeOrphan() {
+        XCTAssertTrue(OrphanedAppFiles.isOrphan(
+            bundleID: "com.example.deadapp",
+            installedBundleIDs: ["com.other.liveapp"]
+        ))
     }
 }

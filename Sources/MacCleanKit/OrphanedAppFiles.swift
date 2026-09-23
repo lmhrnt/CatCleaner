@@ -33,6 +33,7 @@ public enum OrphanedAppFiles {
         "io.qt.",              // Qt framework
         "com.github.electron", // Electron shared runtime
         "com.electron.",       // Electron shared runtime
+        "org.swift.",          // SwiftPM / Swift toolchain infrastructure
     ]
 
     /// Decide whether a directory named `bundleID` is an orphan, given the set
@@ -60,6 +61,19 @@ public enum OrphanedAppFiles {
                 return false
             }
         }
+
+        // Deletion-oriented orphan detection intentionally prefers false
+        // negatives over vendor-shared false positives. If any installed app
+        // still lives under the same reverse-DNS vendor namespace
+        // (e.g. com.microsoft.* / com.google.* / com.openai.*), a sibling
+        // cache/updater/service may be shared infrastructure rather than a
+        // removed app. Keep it out of one-click orphan cleanup.
+        if let namespace = vendorNamespace(id) {
+            for installedID in installed where vendorNamespace(installedID) == namespace {
+                return false
+            }
+        }
+
         return true
     }
 
@@ -72,13 +86,44 @@ public enum OrphanedAppFiles {
         a == b || a.hasPrefix(b + ".") || b.hasPrefix(a + ".")
     }
 
+    /// First two reverse-DNS components (for example, `com.microsoft`).
+    /// Used only as a conservative keep-signal, never as proof that an orphan
+    /// belongs to a particular app.
+    static func vendorNamespace(_ id: String) -> String? {
+        let parts = id
+            .lowercased()
+            .split(separator: ".", omittingEmptySubsequences: true)
+        guard parts.count >= 2 else { return nil }
+        return parts.prefix(2).joined(separator: ".")
+    }
+
     /// A reverse-DNS-looking id: >= 3 non-empty dot components (tld.company.app),
     /// made only of id-safe characters. Requiring three components keeps plain
     /// filenames like `cache.db` and bare names out of the auto-flag set.
     static func isBundleIDLike(_ s: String) -> Bool {
         let parts = s.split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count >= 3, parts.allSatisfy({ !$0.isEmpty }) else { return false }
-        return s.allSatisfy { $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" }
+
+        let first = String(parts[0]).lowercased()
+        let genericTLDs: Set<String> = [
+            "com", "org", "net", "edu", "gov", "mil", "int",
+            "app", "dev", "pro", "biz", "info", "name", "mobi",
+            "cloud", "tech",
+        ]
+
+        // Bundle identifiers are reverse-DNS names. Accept any two-letter
+        // country-code TLD (which also covers popular io/ai/me/tv/co-style
+        // namespaces) or a small set of common generic TLDs. This rejects
+        // ordinary dotted filenames such as catdesk-supervisor.launchd.err.
+        let firstLooksLikeTLD =
+            (first.count == 2 && first.allSatisfy(\.isLetter))
+            || genericTLDs.contains(first)
+
+        guard firstLooksLikeTLD else { return false }
+
+        return s.allSatisfy {
+            $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_"
+        }
     }
 
     static func strippingHelperSuffixes(_ id: String) -> String {
