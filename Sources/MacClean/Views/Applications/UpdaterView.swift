@@ -37,7 +37,24 @@ struct UpdaterView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lock.shield")
+                    .foregroundStyle(.secondary)
+                Text(L10n.tr(
+                    "只有按下“检查更新”后才会连网，并且只请求各 App 自己声明的 HTTPS Sparkle 更新来源。不会上传你的文件，也不会经过 CatCleaner 服务器。",
+                    "Network access occurs only after you press Check for Updates, and only to each app's declared HTTPS Sparkle feed. No files are uploaded and requests do not pass through a CatCleaner server.",
+                    "Сеть используется только после нажатия «Проверить обновления» и только для HTTPS-ленты Sparkle, указанной самим приложением. Файлы не загружаются, запросы не проходят через сервер CatCleaner."
+                ))
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 10)
 
             if isChecking {
                 Spacer()

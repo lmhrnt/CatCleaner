@@ -40,6 +40,7 @@ struct SettingsPageView: View {
             appearanceSection
             languageSection
             excludedFoldersSection
+            privacyNetworkSection
             aboutSection
         }
         .formStyle(.grouped)
@@ -467,6 +468,72 @@ struct SettingsPageView: View {
             )
         case .reject(.alreadyCovered):
             return L10n.tr("该路径已被现有排除项覆盖。", "That path is already covered by an existing exclusion.", "Этот путь уже покрыт существующим исключением.")
+        }
+    }
+
+    // MARK: - Privacy & Network
+
+    private var privacyNetworkSection: some View {
+        Section(L10n.tr("隐私与网络", "Privacy & Network", "Конфиденциальность и сеть")) {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.tr(
+                        "无遥测、无广告追踪",
+                        "No telemetry or advertising trackers",
+                        "Без телеметрии и рекламного трекинга"
+                    ))
+                    Text(L10n.tr(
+                        "清理、磁碟分析、重复档案、相似照片与开发者扫描都在本机处理，不上传你的文件内容。",
+                        "Cleanup, disk analysis, duplicate detection, similar-photo analysis, and developer scans run locally and do not upload your file contents.",
+                        "Очистка, анализ диска, поиск дубликатов, анализ похожих фото и сканирование данных разработчика выполняются локально без загрузки содержимого файлов."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "hand.raised.fill")
+                    .foregroundStyle(.green)
+            }
+
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.tr(
+                        "CatCleaner 自身更新：目前停用",
+                        "CatCleaner self-updates: currently disabled",
+                        "Обновления CatCleaner: сейчас отключены"
+                    ))
+                    Text(L10n.tr(
+                        "在 CatCleaner 拥有自己的签名发布通道前，不会联络上游 Mac Sai 或 Homebrew 更新服务。",
+                        "Until CatCleaner has its own signed release channel, it does not contact upstream Mac Sai or Homebrew update services.",
+                        "Пока у CatCleaner нет собственного подписанного канала релизов, приложение не обращается к службам обновления Mac Sai или Homebrew."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "lock.shield.fill")
+                    .foregroundStyle(.blue)
+            }
+
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.tr(
+                        "第三方 App 更新检查：仅手动触发",
+                        "Third-party app update checks: manual only",
+                        "Проверка обновлений сторонних приложений: только вручную"
+                    ))
+                    Text(L10n.tr(
+                        "只有你在“应用更新”按下“检查更新”时，才会直接请求各 App 自己声明的 HTTPS Sparkle 更新来源；不会经过 CatCleaner 服务器，也不会上传本机文件。",
+                        "Only when you press Check for Updates in App Updater does CatCleaner contact each app's declared HTTPS Sparkle feed directly. Requests are not proxied through a CatCleaner server and no local files are uploaded.",
+                        "Только после нажатия «Проверить обновления» CatCleaner напрямую обращается к HTTPS-ленте Sparkle, указанной самим приложением. Запросы не проходят через сервер CatCleaner, локальные файлы не загружаются."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "network")
+                    .foregroundStyle(.orange)
+            }
         }
     }
 

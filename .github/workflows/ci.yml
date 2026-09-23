@@ -183,19 +183,4 @@ jobs:
           fi
 
       - name: Verify network surface is bounded and non-telemetry
-        run: |
-          NETWORK=$(rg -l             'URLSession|URLRequest|NSURLConnection|NWConnection'             Sources/MacCleanKit Sources/MacClean --glob '*.swift' | sort)
-
-          echo "$NETWORK"
-
-          unexpected=$(echo "$NETWORK" |
-            grep -vE '^Sources/MacCleanKit/UpdateChecker\.swift$|^Sources/MacClean/Modules/Updater/UpdaterModule\.swift$' || true)
-
-          if [ -n "$unexpected" ]; then
-            echo "::error::Unexpected network-capable source file(s):"
-            echo "$unexpected"
-            exit 1
-          fi
-
-          rg -n 'public static let updateChecksEnabled = false'             Sources/MacCleanKit/Constants.swift >/dev/null
-          echo "Network surface is limited to disabled self-update checks and the user-initiated updater module."
+        run: python3 scripts/check-network-surface.py

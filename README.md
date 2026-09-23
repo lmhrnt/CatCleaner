@@ -161,6 +161,15 @@ docs/BUHOCLEANER_PARITY.md
 
 不會覆蓋 Mac Sai。
 
+## 隱私與網路
+
+- 無 analytics、廣告追蹤、遙測或第三方 crash-reporting SDK。
+- 清理、磁碟分析、重複檔案、相似照片與開發者掃描都在本機完成。
+- CatCleaner 自身更新通道目前 fail-closed，不連 upstream Mac Sai / Homebrew。
+- 第三方 App 更新檢查只有使用者按下「檢查更新」才會直接連各 App 的 HTTPS Sparkle feed。
+- 網路能力由 `scripts/check-network-surface.py` 與 CI allowlist 強制限制。
+- 詳見 `PRIVACY.md`。
+
 ## 安全原則
 
 CatCleaner 對清理功能採 fail-closed：
