@@ -30,6 +30,7 @@ public actor ThinAppBundleOperation {
 
     public enum OpError: Error, LocalizedError, Sendable {
         case noFatBinariesFound
+        case unsafeBundle(String)
         case bundleInUse(pids: [String])
         case bundleVerifyFailed(stderr: String)
 
@@ -40,6 +41,12 @@ public actor ThinAppBundleOperation {
                     "应用包中未找到通用 Mach-O 二进制文件",
                     "no fat (universal) Mach-O binaries found in bundle",
                     "В пакете нет универсальных бинарных файлов Mach-O"
+                )
+            case .unsafeBundle(let reason):
+                L10n.tr(
+                    "应用包不符合精简安全范围：\(reason)",
+                    "app bundle is outside the safe thinning scope: \(reason)",
+                    "Пакет приложения вне безопасной области обработки: \(reason)"
                 )
             case .bundleInUse(let pids):
                 L10n.tr(
@@ -59,10 +66,31 @@ public actor ThinAppBundleOperation {
 
     private let logger = Logger(subsystem: MCConstants.bundleIdentifier,
                                 category: "ThinAppBundleOperation")
+    private let allowedRoots: [URL]
+    private let safetyGuard: SafetyGuard
 
-    public init() {}
+    public init() {
+        self.allowedRoots = Self.productionAllowedRoots
+        self.safetyGuard = SafetyGuard()
+    }
+
+    /// Test-only/internal injection point. Production callers use `init()`,
+    /// which is permanently scoped to /Applications and ~/Applications.
+    init(
+        allowedRoots: [URL],
+        safetyGuard: SafetyGuard = SafetyGuard()
+    ) {
+        self.allowedRoots = allowedRoots
+        self.safetyGuard = safetyGuard
+    }
 
     public func thin(bundle: URL, to targetArch: BinaryArch) async throws -> Result {
+        try Self.validateBundleScope(
+            bundle,
+            allowedRoots: allowedRoots,
+            safetyGuard: safetyGuard
+        )
+
         // Pre-flight: nothing else may be using the bundle. If the user is
         // running Slack and tries to thin Slack, lipo would succeed but the
         // running process holds stale handles into the old binary that's
@@ -137,6 +165,72 @@ public actor ThinAppBundleOperation {
             perBinaryErrors: perBin,
             bundleVerifyFailed: false
         )
+    }
+
+    // MARK: - Bundle scope
+
+    /// The mutating actuator has its own path gate; it does not trust the UI or
+    /// a stale scanner result to have supplied a safe application bundle.
+    static let productionAllowedRoots: [URL] = [
+        URL(fileURLWithPath: "/Applications", isDirectory: true),
+        MCConstants.home.appending(path: "Applications", directoryHint: .isDirectory),
+    ]
+
+    static func validateBundleScope(
+        _ bundle: URL,
+        allowedRoots: [URL] = productionAllowedRoots,
+        safetyGuard: SafetyGuard = SafetyGuard()
+    ) throws {
+        let standardized = bundle.standardizedFileURL
+        let path = standardized.path(percentEncoded: false)
+
+        guard standardized.pathExtension.lowercased() == "app" else {
+            throw OpError.unsafeBundle("not an .app bundle: \(path)")
+        }
+
+        guard let values = try? standardized.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        ),
+        values.isDirectory == true,
+        values.isSymbolicLink != true
+        else {
+            throw OpError.unsafeBundle("bundle is missing, not a directory, or is a symbolic link")
+        }
+
+        let resolved = standardized.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedPath = resolved.path(percentEncoded: false)
+
+        // Thinning mutates code in place, so reject any symlinked path rather
+        // than merely checking that its textual prefix looks like Applications.
+        // This also closes parent-directory symlink escapes.
+        guard resolvedPath == path else {
+            throw OpError.unsafeBundle("bundle path resolves through a symbolic link")
+        }
+
+        func isStrictDescendant(_ child: URL, of root: URL) -> Bool {
+            let childPath = child.standardizedFileURL.path(percentEncoded: false)
+            let rootPath = root.standardizedFileURL.path(percentEncoded: false)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            let normalizedRoot = rootPath.isEmpty ? "/" : "/" + rootPath
+            guard childPath != normalizedRoot else { return false }
+            let prefix = normalizedRoot == "/" ? "/" : normalizedRoot + "/"
+            return childPath.hasPrefix(prefix)
+        }
+
+        let insideAllowedRoot = allowedRoots.contains { root in
+            isStrictDescendant(standardized, of: root)
+                && isStrictDescendant(resolved, of: root.resolvingSymlinksInPath())
+        }
+
+        guard insideAllowedRoot else {
+            throw OpError.unsafeBundle("bundle is not under /Applications or ~/Applications")
+        }
+
+        do {
+            try safetyGuard.validatePath(standardized)
+        } catch {
+            throw OpError.unsafeBundle(error.localizedDescription)
+        }
     }
 
     // MARK: - lsof pre-flight

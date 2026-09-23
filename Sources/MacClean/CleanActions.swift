@@ -117,13 +117,30 @@ public enum CleanActions {
             )
         }
         let op = ThinAppBundleOperation()
-        let targetArch = BundleHostInfo.current.hostArch
+        let host = BundleHostInfo.current
+        let targetArch = host.hostArch
+        let policy = UniversalBinariesPolicy()
         var bundleCount = 0
         var savedBytes: UInt64 = 0
         var removedURLs = Set<URL>()
         var errors: [CleaningEngine.CleanError] = []
+        var skippedCount = 0
+
         for item in items {
             if Task.isCancelled { break }
+
+            // Fresh eligibility gate immediately before mutation. A stale scan
+            // result must not authorize thinning after the app was replaced,
+            // moved, became an App Store build, changed architecture slices,
+            // or otherwise stopped satisfying the scanner policy.
+            guard UniversalBinariesScanner.thinnableItem(
+                appURL: item.url,
+                host: host,
+                policy: policy
+            ) != nil else {
+                skippedCount += 1
+                continue
+            }
 
             do {
                 let r = try await op.thin(bundle: item.url, to: targetArch)
@@ -149,7 +166,7 @@ public enum CleanActions {
             freedBytes: savedBytes,
             removedURLs: removedURLs,
             errors: errors,
-            skippedCount: 0
+            skippedCount: skippedCount
         )
     }
 

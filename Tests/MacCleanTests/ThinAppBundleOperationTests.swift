@@ -92,7 +92,116 @@ final class ThinAppBundleOperationTests: XCTestCase {
         UniversalBinaryFixture.architectures(of: url)
     }
 
+    private func makeOperation() -> ThinAppBundleOperation {
+        ThinAppBundleOperation(
+            allowedRoots: [bundleURL.deletingLastPathComponent()]
+        )
+    }
+
     // MARK: - Tests
+
+    func testBundleScopeRejectsNonAppAndSymlinkPaths() throws {
+        let root = bundleURL.deletingLastPathComponent()
+
+        let regular = root.appendingPathComponent("NotAnApp")
+        try FileManager.default.createDirectory(
+            at: regular,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: regular) }
+
+        XCTAssertThrowsError(
+            try ThinAppBundleOperation.validateBundleScope(
+                regular,
+                allowedRoots: [root]
+            )
+        )
+
+        let target = root.appendingPathComponent("RealTarget.app")
+        try FileManager.default.createDirectory(
+            at: target,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: target) }
+
+        let link = root.appendingPathComponent("Linked.app")
+        try FileManager.default.createSymbolicLink(
+            at: link,
+            withDestinationURL: target
+        )
+        defer { try? FileManager.default.removeItem(at: link) }
+
+        XCTAssertThrowsError(
+            try ThinAppBundleOperation.validateBundleScope(
+                link,
+                allowedRoots: [root]
+            )
+        )
+    }
+
+    func testBundleScopeRejectsParentDirectorySymlinkEscape() throws {
+        let root = bundleURL.deletingLastPathComponent()
+        let allowed = root.appendingPathComponent("Allowed-\(UUID().uuidString)")
+        let outside = root.appendingPathComponent("Outside-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: allowed,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: outside,
+            withIntermediateDirectories: true
+        )
+        defer {
+            try? FileManager.default.removeItem(at: allowed)
+            try? FileManager.default.removeItem(at: outside)
+        }
+
+        let target = outside.appendingPathComponent("Escaped.app")
+        try FileManager.default.createDirectory(
+            at: target,
+            withIntermediateDirectories: true
+        )
+
+        let parentLink = allowed.appendingPathComponent("LinkedParent")
+        try FileManager.default.createSymbolicLink(
+            at: parentLink,
+            withDestinationURL: outside
+        )
+
+        let escaped = parentLink.appendingPathComponent("Escaped.app")
+        XCTAssertThrowsError(
+            try ThinAppBundleOperation.validateBundleScope(
+                escaped,
+                allowedRoots: [allowed]
+            )
+        )
+    }
+
+    func testBundleScopeRejectsBundleOutsideAllowedRoot() throws {
+        let allowed = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Allowed-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: allowed,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: allowed) }
+
+        XCTAssertThrowsError(
+            try ThinAppBundleOperation.validateBundleScope(
+                bundleURL,
+                allowedRoots: [allowed]
+            )
+        )
+    }
+
+    func testBundleScopeAcceptsRegularAppInsideInjectedRoot() throws {
+        XCTAssertNoThrow(
+            try ThinAppBundleOperation.validateBundleScope(
+                bundleURL,
+                allowedRoots: [bundleURL.deletingLastPathComponent()]
+            )
+        )
+    }
 
     func testThinsSingleBinaryApp() async throws {
         try writeMinimalApp(name: "MainApp", bundleID: "com.acme.main")
@@ -105,7 +214,7 @@ final class ThinAppBundleOperationTests: XCTestCase {
         try XCTSkipUnless(UniversalBinaryFixture.sealBundleAdHoc(at: bundleURL),
                           "codesign sealing unavailable")
 
-        let op = ThinAppBundleOperation()
+        let op = makeOperation()
         let result = try await op.thin(bundle: bundleURL, to: BundleHostInfo.current.hostArch)
 
         XCTAssertEqual(result.binariesThinned, 1)
@@ -126,7 +235,7 @@ final class ThinAppBundleOperationTests: XCTestCase {
         try XCTSkipUnless(UniversalBinaryFixture.sealBundleAdHoc(at: bundleURL),
                           "codesign sealing unavailable")
 
-        let op = ThinAppBundleOperation()
+        let op = makeOperation()
         let result = try await op.thin(bundle: bundleURL, to: BundleHostInfo.current.hostArch)
 
         // 2 binaries (main + framework), both should be thinned.
@@ -151,7 +260,7 @@ final class ThinAppBundleOperationTests: XCTestCase {
         let handle = try FileHandle(forReadingFrom: exec)
         defer { try? handle.close() }
 
-        let op = ThinAppBundleOperation()
+        let op = makeOperation()
         do {
             _ = try await op.thin(bundle: bundleURL, to: BundleHostInfo.current.hostArch)
             XCTFail("operation must refuse when bundle has open file descriptors")
@@ -188,7 +297,7 @@ final class ThinAppBundleOperationTests: XCTestCase {
         try XCTSkipUnless(UniversalBinaryFixture.codesignVerifiesDeep(bundleURL),
                           "sealed fixture must verify before thinning")
 
-        let op = ThinAppBundleOperation()
+        let op = makeOperation()
         do {
             _ = try await op.thin(bundle: bundleURL, to: BundleHostInfo.current.hostArch)
             XCTFail("must refuse: thinning broke the bundle signature and we don't re-sign")
@@ -216,7 +325,7 @@ final class ThinAppBundleOperationTests: XCTestCase {
         )
         try XCTSkipUnless(built, "cc not available")
 
-        let op = ThinAppBundleOperation()
+        let op = makeOperation()
         do {
             _ = try await op.thin(bundle: bundleURL, to: BundleHostInfo.current.hostArch)
             XCTFail("should refuse when no fat binaries exist")

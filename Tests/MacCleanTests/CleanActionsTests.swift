@@ -25,6 +25,7 @@ import MacCleanTestSupport
 final class CleanActionsTests: XCTestCase {
 
     private var testDir: URL!
+    private var appTestDir: URL!
     /// Files this test placed directly in the real ~/.Trash. Removed in
     /// tearDown by exact path so a failing run never leaves litter behind.
     private var trashTestArtifacts: [URL] = []
@@ -32,12 +33,23 @@ final class CleanActionsTests: XCTestCase {
     override func setUpWithError() throws {
         // Each test gets its own subdir of user caches.
         testDir = MCConstants.userCaches
-            .appending(path: "MacCleanCleanActionsTest-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: testDir, withIntermediateDirectories: true)
+            .appending(path: "CatCleanerCleanActionsTest-\(UUID().uuidString)")
+        appTestDir = MCConstants.home
+            .appending(path: "Applications")
+            .appending(path: "CatCleanerCleanActionsTest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: testDir,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: appTestDir,
+            withIntermediateDirectories: true
+        )
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: testDir)
+        try? FileManager.default.removeItem(at: appTestDir)
         for url in trashTestArtifacts {
             try? FileManager.default.removeItem(at: url)
         }
@@ -65,10 +77,27 @@ final class CleanActionsTests: XCTestCase {
     private func writeUniversalApp(
         _ name: String
     ) throws -> (bundle: URL, binary: URL, item: FileItem) {
-        let bundle = testDir.appending(path: "\(name).app")
+        let bundle = appTestDir.appending(path: "\(name).app")
         let binary = bundle.appending(path: "Contents/MacOS/\(name)")
         let built = try UniversalBinaryFixture.build(at: binary)
         try XCTSkipUnless(built, "cc not available")
+
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "com.catcleaner.tests.\(name.lowercased())",
+            "CFBundleExecutable": name,
+            "CFBundleName": name,
+            "CFBundleVersion": "1",
+            "CFBundleShortVersionString": "1.0",
+            "CFBundlePackageType": "APPL",
+        ]
+        let infoURL = bundle.appending(path: "Contents/Info.plist")
+        let infoData = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try infoData.write(to: infoURL)
+
         let item = FileItem(
             url: bundle,
             name: "\(name).app",
@@ -320,6 +349,37 @@ final class CleanActionsTests: XCTestCase {
     }
 
     // MARK: - Universal binary result accuracy
+
+    func testUniversalBinaryFreshGateSkipsAppThatBecameAppStoreManaged() async throws {
+        let app = try writeUniversalApp("BecameAppStoreManaged")
+        let results = [
+            ScanResult(category: .universalBinaries, items: [app.item])
+        ]
+
+        // Simulate state changing after scan/selection but before execution.
+        let receipt = app.bundle.appending(path: "Contents/_MASReceipt/receipt")
+        try FileManager.default.createDirectory(
+            at: receipt.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("receipt".utf8).write(to: receipt)
+
+        let result = await CleanActions.executeUserClean(
+            results: results,
+            selectedItems: [app.bundle],
+            engine: CleaningEngine()
+        )
+
+        XCTAssertEqual(result.removedCount, 0)
+        XCTAssertEqual(result.freedBytes, 0)
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertTrue(result.errors.isEmpty)
+        XCTAssertEqual(
+            Set(UniversalBinaryFixture.architectures(of: app.binary)),
+            Set(["x86_64", "arm64"]),
+            "fresh App Store eligibility gate must leave the selected app untouched"
+        )
+    }
 
     func testThinningDoesNotCountBundleWhenNoBinaryWasThinned() async throws {
         let app = try writeUniversalApp("AllBinariesFail")
