@@ -89,6 +89,59 @@ xcrun swiftc -typecheck   -I "$PRODUCT_DIR"   Sources/MacClean/Core/Scanner/Scan
 
 echo "semantic_typechecks=PASS"
 
+say "Smart Scan catalog contract"
+
+for source in   Sources/MacClean/Modules/Uninstaller/UninstallerModule.swift   Sources/MacClean/Modules/Updater/UpdaterModule.swift   Sources/MacClean/Modules/Optimization/OptimizationModule.swift   Sources/MacClean/Modules/Maintenance/MaintenanceModule.swift
+do
+  if ! rg -q 'includedInSmartScan = false' "$source"; then
+    echo "FAIL: action-only module is not explicitly excluded from Smart Scan: $source" >&2
+    exit 71
+  fi
+done
+
+cat >"$TMP/smartscan-catalog-smoke.swift" <<'SWIFT'
+import Foundation
+import MacCleanKit
+
+struct DummyModule: ScanModule {
+    let id: String
+    let name: String
+    let category: ModuleCategory
+    let includedInSmartScan: Bool
+
+    func scan() async -> [ScanResult] { [] }
+}
+
+func require(_ condition: @autoclosure () -> Bool, _ message: String) {
+    if !condition() {
+        fputs("FAIL: \(message)\n", stderr)
+        exit(1)
+    }
+}
+
+@main
+struct Main {
+    static func main() {
+        let coordinator = ScanCoordinator()
+        coordinator.registerModules([
+            DummyModule(id: "cleanup-a", name: "Cleanup A", category: .cleanup, includedInSmartScan: true),
+            DummyModule(id: "action-only", name: "Action Only", category: .performance, includedInSmartScan: false),
+            DummyModule(id: "privacy-b", name: "Privacy B", category: .protection, includedInSmartScan: true),
+        ])
+
+        let descriptors = coordinator.smartScanModuleDescriptors
+        require(descriptors.map(\.id) == ["cleanup-a", "privacy-b"], "excluded module leaked into Smart Scan catalog")
+        require(descriptors.map(\.name) == ["Cleanup A", "Privacy B"], "registration order/name drift")
+        require(descriptors.allSatisfy(\.includedInSmartScan), "descriptor included flag must be true")
+        require(descriptors.map(\.category) == [.cleanup, .protection], "category drift")
+        print("SMART_SCAN_CATALOG_SMOKE_PASS ids=\(descriptors.map(\.id).joined(separator: ","))")
+    }
+}
+SWIFT
+
+xcrun swiftc -parse-as-library   -I "$PRODUCT_DIR"   Sources/MacClean/Core/Scanner/ScanCoordinator.swift   "$TMP/smartscan-catalog-smoke.swift"   "$MACCLEANKIT_OBJECT"   -o "$TMP/smartscan-catalog-smoke"
+"$TMP/smartscan-catalog-smoke"
+
 say "synthetic duplicate pipeline"
 cat >"$TMP/duplicate-smoke.swift" <<'SWIFT'
 import Foundation

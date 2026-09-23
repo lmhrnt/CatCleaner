@@ -37,19 +37,43 @@ struct SmartScanView: View {
         case done(freedSize: UInt64, breakdown: [SmartScanCleanup.RecentlyCleanedRow])
     }
 
-    private static var moduleOrder: [(id: String, name: String, icon: String, group: String)] {
-        [
-            ("systemJunk", L10n.tr("系统垃圾", "System Junk", "Системный мусор"), "trash.circle.fill", L10n.tr("清理", "Cleanup", "Очистка")),
-            ("mailAttachments", L10n.tr("邮件附件", "Mail Attachments", "Почтовые вложения"), "paperclip.circle.fill", L10n.tr("清理", "Cleanup", "Очистка")),
-            ("trashBins", L10n.tr("废纸篓", "Trash Bins", "Корзины"), "trash.fill", L10n.tr("清理", "Cleanup", "Очистка")),
-            ("malware", L10n.tr("恶意软件清理", "Malware Removal", "Удаление угроз"), "shield.lefthalf.filled", L10n.tr("防护", "Protection", "Защита")),
-            ("privacy", L10n.tr("隐私清理", "Privacy", "Конфиденциальность"), "hand.raised.fill", L10n.tr("防护", "Protection", "Защита")),
-            ("optimization", L10n.tr("优化", "Optimization", "Оптимизация"), "gauge.with.dots.needle.67percent", L10n.tr("加速", "Speed", "Ускорение")),
-            ("maintenance", L10n.tr("维护", "Maintenance", "Обслуживание"), "wrench.and.screwdriver", L10n.tr("加速", "Speed", "Ускорение")),
-            ("uninstaller", L10n.tr("卸载器", "Uninstaller", "Удаление приложений"), "xmark.app.fill", L10n.tr("应用", "Apps", "Приложения")),
-            ("updater", L10n.tr("应用更新", "Updater", "Обновления"), "arrow.triangle.2.circlepath", L10n.tr("应用", "Apps", "Приложения")),
-            ("largeOldFiles", L10n.tr("大文件与旧文件", "Large & Old Files", "Большие и старые файлы"), "doc.richtext.fill", L10n.tr("文件", "Files", "Файлы")),
-        ]
+    /// Derived from ScanCoordinator's actual registered + included modules so
+    /// the checklist cannot drift into showing ghost steps or hiding new ones.
+    private var moduleOrder: [(id: String, name: String, icon: String, group: String)] {
+        appState.scanCoordinator.smartScanModuleDescriptors.map { descriptor in
+            (
+                descriptor.id,
+                descriptor.name,
+                Self.icon(forSmartScanModuleID: descriptor.id),
+                Self.groupName(for: descriptor.category)
+            )
+        }
+    }
+
+    private static func icon(forSmartScanModuleID id: String) -> String {
+        switch id {
+        case "system_junk": "trash.circle.fill"
+        case "mail_attachments": "paperclip.circle.fill"
+        case "trash_bins": "trash.fill"
+        case "malware": "shield.lefthalf.filled"
+        case "privacy": "hand.raised.fill"
+        default: "circle.grid.2x2.fill"
+        }
+    }
+
+    private static func groupName(for category: ModuleCategory) -> String {
+        switch category {
+        case .cleanup:
+            L10n.tr("清理", "Cleanup", "Очистка")
+        case .protection:
+            L10n.tr("防护", "Protection", "Защита")
+        case .performance:
+            L10n.tr("加速", "Speed", "Ускорение")
+        case .applications:
+            L10n.tr("应用", "Apps", "Приложения")
+        case .files:
+            L10n.tr("文件", "Files", "Файлы")
+        }
     }
 
     var body: some View {
@@ -109,7 +133,11 @@ struct SmartScanView: View {
                 Text(L10n.tr("智能扫描", "Smart Scan", "Умное сканирование"))
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.primary)
-                Text(L10n.tr("扫描 Mac 中的垃圾文件、恶意威胁\n和性能问题", "Scan your Mac for junk files, malware threats,\nand performance issues", "Поиск на Mac мусора, вредоносных программ\nи проблем с производительностью"))
+                Text(L10n.tr(
+                    "扫描 Mac 中的垃圾文件、恶意威胁\n与隐私痕迹",
+                    "Scan your Mac for junk files, malware findings,\nand privacy traces",
+                    "Поиск на Mac мусора, вредоносных находок\nи следов конфиденциальности"
+                ))
                     .font(.system(size: 14))
                     .foregroundStyle(.primary.opacity(0.65))
                     .multilineTextAlignment(.center)
@@ -161,7 +189,7 @@ struct SmartScanView: View {
             // Module checklist
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(Array(Self.moduleOrder.enumerated()), id: \.offset) { index, module in
+                    ForEach(Array(moduleOrder.enumerated()), id: \.offset) { index, module in
                         moduleRow(module: module, currentPhase: phase)
                     }
                 }
@@ -524,7 +552,7 @@ struct SmartScanView: View {
                         let filesInModule = files - previousFiles
                         let sizeInModule = size - previousSize
 
-                        let icon = Self.moduleOrder.first { $0.name == previousModule }?.icon ?? "circle"
+                        let icon = moduleOrder.first { $0.name == previousModule }?.icon ?? "circle"
                         completedModules.append(CompletedModule(
                             name: previousModule,
                             icon: icon,
@@ -546,7 +574,7 @@ struct SmartScanView: View {
                         let totalSize = results.reduce(0 as UInt64) { $0 + $1.totalSize }
                         let filesInModule = totalFiles - previousFiles
                         let sizeInModule = totalSize - previousSize
-                        let icon = Self.moduleOrder.first { $0.name == previousModule }?.icon ?? "circle"
+                        let icon = moduleOrder.first { $0.name == previousModule }?.icon ?? "circle"
                         completedModules.append(CompletedModule(
                             name: previousModule,
                             icon: icon,

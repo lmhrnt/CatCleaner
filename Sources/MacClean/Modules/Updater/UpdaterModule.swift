@@ -6,6 +6,7 @@ public struct UpdaterModule: ScanModule {
     public let id = "updater"
     public var name: String { L10n.tr("应用更新", "Updater", "Обновления") }
     public let category = ModuleCategory.applications
+    public let includedInSmartScan = false
 
     public init() {}
 

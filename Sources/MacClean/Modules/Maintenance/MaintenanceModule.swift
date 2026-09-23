@@ -6,6 +6,7 @@ public struct MaintenanceModule: ScanModule {
     public let id = "maintenance"
     public var name: String { L10n.tr("维护", "Maintenance", "Обслуживание") }
     public let category = ModuleCategory.performance
+    public let includedInSmartScan = false
 
     public init() {}
 

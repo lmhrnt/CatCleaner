@@ -6,6 +6,7 @@ public struct UninstallerModule: ScanModule {
     public let id = "uninstaller"
     public var name: String { L10n.tr("卸载器", "Uninstaller", "Удаление приложений") }
     public let category = ModuleCategory.applications
+    public let includedInSmartScan = false
 
     public init() {}
 

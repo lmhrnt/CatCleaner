@@ -103,6 +103,7 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 - Developer Cleanup 的容量探測最多 4 路並行；已修正大型 `ps` 輸出可能造成的 pipe deadlock。
 - CatCleaner 不再繼承 Mac Sai 的 Apple Developer Team ID；privileged/XPC trust 預設 fail-closed。
 - upstream 更新檢查已停用，避免 CatCleaner 誤提示 Mac Sai release。
+- Smart Scan 僅執行真正會產生掃描結果的模組；Uninstaller / Updater / Optimization / Maintenance 與大型檔案等 action/review-only 模組不再出現幽靈掃描步驟。Checklist 直接由 `ScanCoordinator` 的註冊與 `includedInSmartScan` 契約產生，避免 UI 與 runtime 漂移。
 
 ## Build 狀態
 

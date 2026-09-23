@@ -21,6 +21,25 @@ public enum ModuleCategory: String, CaseIterable, Sendable {
     case files = "文件"
 }
 
+public struct ScanModuleDescriptor: Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let category: ModuleCategory
+    public let includedInSmartScan: Bool
+
+    public init(
+        id: String,
+        name: String,
+        category: ModuleCategory,
+        includedInSmartScan: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.category = category
+        self.includedInSmartScan = includedInSmartScan
+    }
+}
+
 @Observable
 public final class ScanCoordinator: @unchecked Sendable {
     public enum ScanState: Sendable {
@@ -45,6 +64,22 @@ public final class ScanCoordinator: @unchecked Sendable {
 
     public func registerModules(_ newModules: [ScanModule]) {
         modules.append(contentsOf: newModules)
+    }
+
+    /// Read-only snapshot used by Smart Scan UI. This keeps the visible
+    /// checklist derived from the same registration/inclusion contract that
+    /// actually drives `scanAll()`, preventing ghost or missing steps.
+    public var smartScanModuleDescriptors: [ScanModuleDescriptor] {
+        modules
+            .filter(\.includedInSmartScan)
+            .map {
+                ScanModuleDescriptor(
+                    id: $0.id,
+                    name: $0.name,
+                    category: $0.category,
+                    includedInSmartScan: $0.includedInSmartScan
+                )
+            }
     }
 
     public func scanAll() {
