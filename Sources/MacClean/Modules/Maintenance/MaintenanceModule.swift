@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import MacCleanKit
 
 public struct MaintenanceModule: ScanModule {
@@ -27,20 +28,45 @@ public actor MaintenanceExecutor {
 
     private let privilegedRunner: any PrivilegedShellRunning
     private let commandExists: @Sendable (String) -> Bool
+    private let mailRoot: URL
+    private let mailIsRunning: @Sendable () -> Bool
+    private let trashItem: @Sendable (URL) throws -> Void
+    private let safetyGuard = SafetyGuard()
 
     public init() {
         self.init(
             privilegedRunner: AppleScriptPrivilegedRunner(),
-            commandExists: { FileManager.default.isExecutableFile(atPath: $0) }
+            commandExists: { FileManager.default.isExecutableFile(atPath: $0) },
+            mailRoot: MCConstants.mailData,
+            mailIsRunning: {
+                NSWorkspace.shared.runningApplications.contains {
+                    $0.bundleIdentifier == "com.apple.mail" && !$0.isTerminated
+                }
+            },
+            trashItem: { url in
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            }
         )
     }
 
     init(
         privilegedRunner: any PrivilegedShellRunning,
-        commandExists: @escaping @Sendable (String) -> Bool
+        commandExists: @escaping @Sendable (String) -> Bool,
+        mailRoot: URL = MCConstants.mailData,
+        mailIsRunning: @escaping @Sendable () -> Bool = {
+            NSWorkspace.shared.runningApplications.contains {
+                $0.bundleIdentifier == "com.apple.mail" && !$0.isTerminated
+            }
+        },
+        trashItem: @escaping @Sendable (URL) throws -> Void = { url in
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        }
     ) {
         self.privilegedRunner = privilegedRunner
         self.commandExists = commandExists
+        self.mailRoot = mailRoot.standardizedFileURL
+        self.mailIsRunning = mailIsRunning
+        self.trashItem = trashItem
     }
 
     public func execute(_ task: MaintenanceTask) async -> TaskResult {
@@ -125,35 +151,169 @@ public actor MaintenanceExecutor {
     }
 
     private func reindexMail() async -> TaskResult {
-        let mailEnvelopeIndex = MCConstants.mailData
-            .appending(path: "V10/MailData/Envelope Index")
+        guard !mailIsRunning() else {
+            return TaskResult(
+                task: .speedUpMail,
+                success: false,
+                output: "",
+                error: L10n.tr(
+                    "请先完全退出“邮件”App，再重建索引。",
+                    "Quit Mail.app completely before rebuilding its index.",
+                    "Полностью закройте Почту перед перестроением индекса."
+                )
+            )
+        }
 
-        let fm = FileManager.default
-        if fm.fileExists(atPath: mailEnvelopeIndex.path(percentEncoded: false)) {
+        let candidates = Self.mailIndexCandidates(
+            mailRoot: mailRoot,
+            fileManager: .default
+        )
+
+        guard !candidates.isEmpty else {
+            return TaskResult(
+                task: .speedUpMail,
+                success: true,
+                output: L10n.tr(
+                    "未找到可重建的邮件 Envelope Index。",
+                    "No rebuildable Mail Envelope Index was found.",
+                    "Индекс Envelope Index для перестроения не найден."
+                ),
+                error: nil
+            )
+        }
+
+        do {
+            try safetyGuard.validateDeletion(paths: candidates)
+        } catch {
+            return TaskResult(
+                task: .speedUpMail,
+                success: false,
+                output: "",
+                error: error.localizedDescription
+            )
+        }
+
+        // Fresh owner gate immediately before the first mutation.
+        guard !mailIsRunning() else {
+            return TaskResult(
+                task: .speedUpMail,
+                success: false,
+                output: "",
+                error: L10n.tr(
+                    "“邮件”App 在确认后又启动了，因此已取消索引重建。",
+                    "Mail.app started after confirmation, so the index rebuild was cancelled.",
+                    "Почта была запущена после подтверждения, поэтому перестроение индекса отменено."
+                )
+            )
+        }
+
+        var moved = 0
+        var errors: [String] = []
+
+        for url in candidates {
             do {
-                try fm.removeItem(at: mailEnvelopeIndex)
-                return TaskResult(
-                    task: .speedUpMail,
-                    success: true,
-                    output: L10n.tr("邮件索引已移除。邮件将在下次启动时重建。", "Mail envelope index removed. Mail will rebuild it on next launch.", "Индекс Почты удалён. Почта перестроит его при следующем запуске."),
-                    error: nil
-                )
+                try trashItem(url)
+                moved += 1
             } catch {
-                return TaskResult(
-                    task: .speedUpMail,
-                    success: false,
-                    output: "",
-                    error: error.localizedDescription
-                )
+                errors.append("\(url.lastPathComponent): \(error.localizedDescription)")
             }
+        }
+
+        guard errors.isEmpty else {
+            return TaskResult(
+                task: .speedUpMail,
+                success: false,
+                output: moved > 0
+                    ? L10n.tr(
+                        "已有 \(moved) 个索引文件移到垃圾桶。",
+                        "\(moved) index files were moved to Trash before the failure.",
+                        "До ошибки в Корзину перемещено файлов индекса: \(moved)."
+                    )
+                    : "",
+                error: errors.joined(separator: "\n")
+            )
         }
 
         return TaskResult(
             task: .speedUpMail,
             success: true,
-            output: L10n.tr("未找到邮件索引——邮件可能使用了不同的版本目录。", "Mail envelope index not found — Mail may use a different version directory.", "Индекс Почты не найден: возможно, Почта использует другую папку версии."),
+            output: L10n.tr(
+                "已将 \(moved) 个邮件索引文件移到垃圾桶。下次启动“邮件”时会自动重建。",
+                "Moved \(moved) Mail index files to Trash. Mail will rebuild them on next launch.",
+                "Файлов индекса Почты перемещено в Корзину: \(moved). При следующем запуске Почта создаст их заново."
+            ),
             error: nil
         )
+    }
+
+    /// Returns the index family from the highest Mail version directory that
+    /// actually contains a rebuildable Envelope Index. Older V* trees are left
+    /// untouched so stale migrations/backups do not get modified incidentally.
+    static func mailIndexCandidates(
+        mailRoot: URL,
+        fileManager: FileManager
+    ) -> [URL] {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: mailRoot,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        let versions: [(number: Int, url: URL)] = entries.compactMap { url in
+            let name = url.lastPathComponent
+            guard name.first == "V",
+                  let number = Int(name.dropFirst()),
+                  let values = try? url.resourceValues(
+                    forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+                  ),
+                  values.isDirectory == true,
+                  values.isSymbolicLink != true
+            else {
+                return nil
+            }
+            return (number, url)
+        }
+        .sorted { $0.number > $1.number }
+
+        let names = [
+            "Envelope Index",
+            "Envelope Index-shm",
+            "Envelope Index-wal",
+            "Envelope Index-journal",
+        ]
+
+        for version in versions {
+            let mailData = version.url.appending(path: "MailData")
+            guard let values = try? mailData.resourceValues(
+                forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+            ),
+            values.isDirectory == true,
+            values.isSymbolicLink != true
+            else {
+                continue
+            }
+
+            let candidates = names.compactMap { name -> URL? in
+                let url = mailData.appending(path: name)
+                guard let itemValues = try? url.resourceValues(
+                    forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+                ),
+                itemValues.isRegularFile == true,
+                itemValues.isSymbolicLink != true
+                else {
+                    return nil
+                }
+                return url
+            }
+
+            if candidates.contains(where: { $0.lastPathComponent == "Envelope Index" }) {
+                return candidates
+            }
+        }
+
+        return []
     }
 
     /// Reclaim Docker space via `docker system prune -f`. Gated on the Docker

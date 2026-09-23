@@ -71,7 +71,11 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
         case .verifyStartupDisk:
             L10n.tr("检查启动磁盘的文件系统完整性", "Check file system integrity of the boot disk", "Проверить целостность файловой системы загрузочного диска")
         case .speedUpMail:
-            L10n.tr("重建“邮件”数据库索引，以修复搜索和性能问题", "Reindex the Mail.app database to fix search and performance issues", "Переиндексировать базу данных Почты, чтобы исправить поиск и повысить производительность")
+            L10n.tr(
+                "关闭“邮件”后，将当前 Envelope Index 移到垃圾桶并让 Mail 下次启动时重建",
+                "After Mail.app is closed, move the current Envelope Index to Trash and let Mail rebuild it on next launch",
+                "После закрытия Почты переместить текущий Envelope Index в Корзину и позволить Почте создать его заново при следующем запуске"
+            )
         case .rebuildLaunchServices:
             L10n.tr("修复 Finder 的文件类型与应用打开方式数据库", "Repair Finder's file-type-to-application mapping database", "Исправить базу сопоставлений типов файлов и приложений Finder")
         case .reindexSpotlight:
@@ -139,7 +143,11 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
         case .verifyStartupDisk:
             L10n.tr("会产生几分钟磁盘活动。该操作为只读，无论结果如何都不会更改磁盘内容。", "A few minutes of disk activity. Read-only — nothing on disk is changed regardless of the outcome.", "Несколько минут активности диска. Операция выполняется только для чтения — содержимое диска не изменится независимо от результата.")
         case .speedUpMail:
-            L10n.tr("“邮件”应用的搜索索引会从头重建。重建完成前，邮件搜索和未读数可能不准确（大型邮箱通常需 10–30 分钟）。", "Mail.app's search index is rebuilt from scratch. Mail search and unread counts will be wrong until the rebuild finishes (typically 10–30 minutes on a large mailbox).", "Поисковый индекс Почты будет создан заново. До завершения поиск и счётчики непрочитанных писем могут быть неточными (для большого ящика обычно 10–30 минут).")
+            L10n.tr(
+                "必须先完全退出“邮件”。CatCleaner 会把当前 Mail 版本的 Envelope Index、WAL/SHM 等索引文件移到 macOS 垃圾桶，而不是永久删除；下次启动“邮件”会从头重建索引。重建完成前，搜索和未读数可能暂时不准确（大型邮箱通常需 10–30 分钟）。",
+                "Mail.app must be fully quit first. CatCleaner moves the current Mail version's Envelope Index and WAL/SHM companions to the macOS Trash rather than deleting them permanently; Mail rebuilds the index from scratch on next launch. Search and unread counts may be temporarily inaccurate until rebuilding finishes (typically 10–30 minutes on a large mailbox).",
+                "Сначала полностью закройте Почту. CatCleaner переместит Envelope Index текущей версии Почты и файлы WAL/SHM в Корзину macOS вместо безвозвратного удаления; при следующем запуске Почта создаст индекс заново. До завершения поиска и счётчики непрочитанных сообщений могут быть временно неточными (обычно 10–30 минут для большого ящика)."
+            )
         case .rebuildLaunchServices:
             L10n.tr("macOS 的“哪类文件由哪个应用打开”数据库会被清除并重建。完成前（通常数小时），双击文件可能失败或打开错误应用，默认应用设置可能重置，Spotlight 启动应用也可能不可用。重启可加快恢复。", "macOS's database of \"which app opens which file type\" is erased and rebuilt. Until it finishes (often several hours), double-clicking files may fail or open the wrong app, default-app settings may reset, and launching apps via Spotlight may not work. A reboot speeds this up.", "База macOS, определяющая, каким приложением открывается каждый тип файлов, будет удалена и создана заново. До завершения (часто несколько часов) двойной щелчок по файлам может не работать или открывать неверное приложение, настройки приложений по умолчанию могут сброситься, а запуск приложений через Spotlight — не работать. Перезагрузка ускорит восстановление.")
         case .reindexSpotlight:

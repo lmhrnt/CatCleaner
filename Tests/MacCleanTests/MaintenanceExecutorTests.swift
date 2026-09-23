@@ -106,6 +106,127 @@ final class MaintenanceExecutorTests: EnglishAppLanguageTestCase {
         XCTAssertEqual(result.error, "Operation not permitted")
     }
 
+    func testMailReindexBlocksWhileMailIsRunning() async throws {
+        let root = try makeMailFixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let mailData = root.appendingPathComponent("V10/MailData")
+        try FileManager.default.createDirectory(
+            at: mailData,
+            withIntermediateDirectories: true
+        )
+        let index = mailData.appendingPathComponent("Envelope Index")
+        try Data("index".utf8).write(to: index)
+
+        let trash = RecordingTrash()
+        let executor = MaintenanceExecutor(
+            privilegedRunner: RecordingPrivilegedRunner(result: .ok("")),
+            commandExists: { _ in true },
+            mailRoot: root,
+            mailIsRunning: { true },
+            trashItem: { trash.record($0) }
+        )
+
+        let result = await executor.execute(.speedUpMail)
+
+        XCTAssertFalse(result.success)
+        XCTAssertTrue(trash.urls.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: index.path))
+        XCTAssertEqual(
+            result.error,
+            "Quit Mail.app completely before rebuilding its index."
+        )
+    }
+
+    func testMailReindexUsesNewestVersionWithCompleteMainIndex() async throws {
+        let root = try makeMailFixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let v9 = root.appendingPathComponent("V9/MailData")
+        let v10 = root.appendingPathComponent("V10/MailData")
+        let v11 = root.appendingPathComponent("V11/MailData")
+        for dir in [v9, v10, v11] {
+            try FileManager.default.createDirectory(
+                at: dir,
+                withIntermediateDirectories: true
+            )
+        }
+
+        try Data("old".utf8).write(
+            to: v9.appendingPathComponent("Envelope Index")
+        )
+        try Data("current".utf8).write(
+            to: v10.appendingPathComponent("Envelope Index")
+        )
+        try Data("wal".utf8).write(
+            to: v10.appendingPathComponent("Envelope Index-wal")
+        )
+        try Data("shm".utf8).write(
+            to: v10.appendingPathComponent("Envelope Index-shm")
+        )
+
+        // A higher version directory with only a stray WAL is not a complete
+        // current index family and must not shadow V10.
+        try Data("stale".utf8).write(
+            to: v11.appendingPathComponent("Envelope Index-wal")
+        )
+
+        let trash = RecordingTrash()
+        let executor = MaintenanceExecutor(
+            privilegedRunner: RecordingPrivilegedRunner(result: .ok("")),
+            commandExists: { _ in true },
+            mailRoot: root,
+            mailIsRunning: { false },
+            trashItem: { trash.record($0) }
+        )
+
+        let result = await executor.execute(.speedUpMail)
+
+        XCTAssertTrue(result.success, result.error ?? "")
+        XCTAssertEqual(trash.urls.count, 3)
+        XCTAssertEqual(
+            Set(trash.urls.map(\.lastPathComponent)),
+            Set(["Envelope Index", "Envelope Index-wal", "Envelope Index-shm"])
+        )
+        XCTAssertTrue(
+            trash.urls.allSatisfy {
+                $0.path.contains("/V10/MailData/")
+            }
+        )
+        XCTAssertFalse(
+            trash.urls.contains {
+                $0.path.contains("/V9/") || $0.path.contains("/V11/")
+            }
+        )
+    }
+
+    func testMailCandidateSelectionRequiresRegularMainIndex() throws {
+        let root = try makeMailFixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let v10 = root.appendingPathComponent("V10/MailData")
+        try FileManager.default.createDirectory(
+            at: v10,
+            withIntermediateDirectories: true
+        )
+
+        let outside = root.appendingPathComponent("outside-index")
+        try Data("outside".utf8).write(to: outside)
+
+        let link = v10.appendingPathComponent("Envelope Index")
+        try FileManager.default.createSymbolicLink(
+            at: link,
+            withDestinationURL: outside
+        )
+
+        XCTAssertTrue(
+            MaintenanceExecutor.mailIndexCandidates(
+                mailRoot: root,
+                fileManager: .default
+            ).isEmpty
+        )
+    }
+
     /// `NSAppleScript` is documented as main-thread-only. The production
     /// runner uses a dedicated serial queue so long `periodic` jobs don't
     /// freeze the UI. This proves `do shell script` (no admin) still works
@@ -121,6 +242,18 @@ final class MaintenanceExecutorTests: EnglishAppLanguageTestCase {
         }
         XCTAssertNil(result.1, "off-main do shell script failed: \(result.1 ?? [:])")
         XCTAssertEqual(result.0, "ok")
+    }
+
+    private func makeMailFixture() throws -> URL {
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Caches")
+            .appendingPathComponent("CatCleaner-MailReindexTests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        return root
     }
 
     func testGeneratedAdminScriptsCompile() {
@@ -145,6 +278,23 @@ final class MaintenanceExecutorTests: EnglishAppLanguageTestCase {
 /// Records every privileged command line. `@unchecked Sendable` because the
 /// executor is an actor and tests await it sequentially — no concurrent
 /// mutation.
+final class RecordingTrash: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [URL] = []
+
+    var urls: [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func record(_ url: URL) {
+        lock.lock()
+        storage.append(url)
+        lock.unlock()
+    }
+}
+
 final class RecordingPrivilegedRunner: PrivilegedShellRunning, @unchecked Sendable {
     private(set) var commandLines: [String] = []
     var result: PrivilegedShellResult
