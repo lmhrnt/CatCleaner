@@ -123,7 +123,7 @@ struct MaintenanceView: View {
             .buttonStyle(.plain)
             .disabled(isRunning(task))
             .help(task.severity == .advanced
-                  ? L10n.tr("可能带来持续数小时的影响——将打开确认窗口", "Has multi-hour side effects — opens a confirmation", "Может влиять на систему несколько часов — откроется окно подтверждения")
+                  ? L10n.tr("此任务有明显或不可逆副作用——将先打开确认窗口", "This task has noticeable or irreversible side effects — opens a confirmation first", "У этой задачи есть заметные или необратимые последствия — сначала откроется подтверждение")
                   : L10n.tr("运行此任务", "Run this task", "Запустить эту задачу"))
         }
         .padding(.horizontal, 14)
@@ -182,7 +182,7 @@ struct MaintenanceView: View {
     }
 
     /// Bulk button runs ONLY safe tasks, and runs them SEQUENTIALLY. Several
-    /// safe tasks need admin (purge, periodic). Sequential order keeps the
+    /// safe tasks need admin (purgeable-space thinning, periodic). Sequential order keeps the
     /// UI status per-task; the in-process AppleScript runner then reuses the
     /// cached admin password so the user types it once (issues #82 / #143).
     private func runSafeTasks() {

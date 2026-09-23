@@ -55,7 +55,11 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
     public var description: String {
         switch self {
         case .freeUpRAM:
-            L10n.tr("清理非活动内存，为当前应用释放更多空间", "Purge inactive memory to give active apps more breathing room", "Очистить неактивную память, освободив ресурсы для работающих приложений")
+            L10n.tr(
+                "请求 macOS 清理可回收的非活动与文件缓存内存；系统通常会自行管理这些内存",
+                "Ask macOS to purge reclaimable inactive/file-cache memory; macOS normally manages this automatically",
+                "Попросить macOS очистить высвобождаемую неактивную память и файловый кэш; обычно система управляет этим автоматически"
+            )
         case .freeUpPurgeableSpace:
             L10n.tr("通过精简低优先级本地快照回收可清除磁盘空间", "Reclaim purgeable disk space by thinning low-priority local snapshots", "Освободить место на диске, сократив низкоприоритетные локальные снимки")
         case .runMaintenanceScripts:
@@ -91,15 +95,15 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
     public var severity: Severity {
         switch self {
         // Read-only or trivially reversible — run on click.
-        case .freeUpRAM,                // purge inactive memory
-             .freeUpPurgeableSpace,     // deletes only files marked purgeable
+        case .freeUpPurgeableSpace,     // deletes only files marked purgeable
              .verifyStartupDisk,        // read-only check
              .flushDNSCache,            // re-resolves in ms
              .runMaintenanceScripts:    // Apple-blessed periodic routines
             .safe
 
-        // Real side effects — must show the user what to expect.
-        case .speedUpMail,              // rebuilds Mail envelope index
+        // Noticeable/irreversible side effects — require explicit consent.
+        case .freeUpRAM,                // drops caches; apps/files may reload and briefly slow down
+             .speedUpMail,              // rebuilds Mail envelope index
              .rebuildLaunchServices,    // wipes app/file-type DB — hours of broken double-clicks
              .reindexSpotlight,         // wipes Spotlight index — search dies for hours
              .thinTimeMachineSnapshots, // deletes local TM snapshots
@@ -115,7 +119,11 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
     public var sideEffects: String {
         switch self {
         case .freeUpRAM:
-            L10n.tr("曾被换出的应用回到前台时可能需要片刻恢复。", "Apps that had memory paged out may take a moment to come back to foreground.", "Приложения, чья память была выгружена, могут ненадолго задержаться при возврате на передний план.")
+            L10n.tr(
+                "内存使用数字可能暂时下降，但这不会增加物理 RAM，也不保证持续提速。被清掉的应用与文件缓存需要重新加载，短时间内反而可能变慢；macOS 平时会自动回收这些内存。",
+                "Reported memory use may drop temporarily, but this does not add physical RAM or guarantee a lasting speedup. Apps and file data whose caches were purged may need to reload and can briefly become slower; macOS normally reclaims this memory automatically.",
+                "Показатель занятой памяти может временно снизиться, но это не добавляет физическую ОЗУ и не гарантирует длительного ускорения. Приложениям и файлам может потребоваться заново загрузить очищенный кэш, поэтому система на короткое время может стать медленнее; обычно macOS сама освобождает эту память."
+            )
         case .freeUpPurgeableSpace:
             L10n.tr("仅移除 macOS 已标记可清理的 Time Machine 本地快照；不会删除你主动需要的内容。", "Time Machine local snapshots that macOS already flagged for cleanup are removed; nothing the user actively needs is deleted.", "Удаляются только локальные снимки Time Machine, уже помеченные macOS для очистки; нужные вам данные не удаляются.")
         case .runMaintenanceScripts:

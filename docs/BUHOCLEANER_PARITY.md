@@ -33,7 +33,7 @@
 | 磁碟空間視覺化 | ✅ | Space Lens；含 volume scanning hardening |
 | 即時 CPU / RAM / Disk | ✅ | Menu bar SystemStats |
 | Battery / Network | ✅ | Menu bar monitor 額外提供 |
-| 一鍵釋放 RAM | ✅ | Maintenance / Free Up RAM |
+| 一鍵釋放 RAM | 🛡️ | `/usr/sbin/purge`；需明確確認，說明僅暫時清快取、不增加實體 RAM，也不保證持續加速 |
 | Spotlight 重建 | ✅ | Maintenance / Spotlight Reindex |
 | DNS 快取重置 | ✅ | Maintenance / DNS Flush |
 | 碎紙機 | 🛡️ | Trash／立即刪除／單次邏輯覆寫後刪除；明確提示 APFS/SSD 無法保證物理 NAND 抹除 |

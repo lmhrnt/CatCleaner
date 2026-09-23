@@ -85,11 +85,12 @@ final class MaintenanceTaskTests: EnglishAppLanguageTestCase {
                        "Reindex Spotlight kills search for hours — must be .advanced")
         XCTAssertEqual(MaintenanceTask.thinTimeMachineSnapshots.severity, .advanced,
                        "Thin Time Machine Snapshots deletes local snapshots — must be .advanced")
+        XCTAssertEqual(MaintenanceTask.freeUpRAM.severity, .advanced,
+                       "purge drops caches and can briefly slow apps — must require explicit consent")
     }
 
     /// SPEC: every-day-safe tasks stay safe (no friction).
     func testSafeTasks_areNotGatedBehindFriction() {
-        XCTAssertEqual(MaintenanceTask.freeUpRAM.severity, .safe)
         XCTAssertEqual(MaintenanceTask.flushDNSCache.severity, .safe)
         XCTAssertEqual(MaintenanceTask.verifyStartupDisk.severity,
                        .safe, "verify is read-only — no side effects")
@@ -114,6 +115,11 @@ final class MaintenanceTaskTests: EnglishAppLanguageTestCase {
         let spotlightCopy = MaintenanceTask.reindexSpotlight.sideEffects.lowercased()
         XCTAssertTrue(spotlightCopy.contains("hour") || spotlightCopy.contains("longer"),
                       "Reindex Spotlight side-effect text must mention time-to-recover")
+
+        let memoryCopy = MaintenanceTask.freeUpRAM.sideEffects.lowercased()
+        XCTAssertTrue(memoryCopy.contains("does not add physical ram"))
+        XCTAssertTrue(memoryCopy.contains("slower"))
+        XCTAssertTrue(memoryCopy.contains("automatically"))
     }
 
     func testAllExecutablePathsAreAbsolute() {
