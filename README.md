@@ -117,13 +117,15 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 
 完整 App build / XCTest 需要安裝完整 Xcode，並以 Xcode developer directory 執行。
 
-公開發佈前可執行只讀 readiness audit：
+功能完成度與公開發佈採兩條獨立 gate：
 
 ```bash
+./scripts/feature-readiness.sh --quick
+./scripts/feature-readiness.sh --full
 ./scripts/release-readiness.sh
 ```
 
-目前預期回報 `verdict=HOLD`，直到 CatCleaner 擁有完整 Xcode、自己的 GitHub origin、Developer ID，以及正式啟用的 release/signing workflow。warning（自有主圖示、自動更新、Homebrew、notary profile 等）會另外列出，不與 required blocker 混在一起。
+目前功能 gate 已可達 `verdict=FEATURE_COMPLETE_LOCAL`；公開發佈 gate 則預期維持 `verdict=HOLD`，直到 CatCleaner 擁有完整 Xcode、自己的 GitHub origin、Developer ID，以及正式啟用的 release/signing workflow。warning（自有主圖示、自動更新、Homebrew、notary profile 等）會另外列出，不與 required blocker 混在一起。
 
 ## 本機開發
 

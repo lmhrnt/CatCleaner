@@ -65,6 +65,19 @@ CatCleaner 的設計不把「容量很大」直接等同「垃圾」：
 8. **VM / iOS backup bundle semantics**：整包顯示，避免將內部檔案拆散誤刪。
 9. **downstream identity fail-closed**：不繼承 Mac Sai 的 Team ID、release feed、Homebrew cask。
 
+## 本機功能完成度 Gate
+
+CatCleaner 將「功能是否完成」與「能否公開發佈」分開驗證：
+
+```bash
+./scripts/feature-readiness.sh --quick
+./scripts/feature-readiness.sh --full
+```
+
+`FEATURE_COMPLETE_LOCAL` 代表 BuhoCleaner 對照表中的非發佈功能都已落在 `✅` 或 `🛡️`，且 core smoke 通過；它**不代表** Developer ID、notarization、GitHub origin 或 release workflow 已就緒。公開發佈仍以 `scripts/release-readiness.sh` 為準。
+
+目前已實測 `scripts/core-smoke.sh --full` 回報 `CATCLEANER_CORE_SMOKE_PASS mode=--full`。
+
 ## 目前建置驗證狀態
 
 本機目前只選到：
