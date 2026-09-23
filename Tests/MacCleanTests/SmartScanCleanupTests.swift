@@ -45,6 +45,134 @@ final class SmartScanCleanupTests: XCTestCase {
         XCTAssertEqual(urls, Set([URL(filePath: "/c/a"), URL(filePath: "/c/b")]))
     }
 
+    func testFindingSummarySeparatesCleanupMalwareAndPrivacy() {
+        let modules = [
+            ModuleScanResult(
+                moduleID: "system_junk",
+                moduleName: "System Junk",
+                categories: [
+                    ScanResult(category: .userCaches, items: [item("/c/a", 100)]),
+                    ScanResult(category: .userLogs, items: [item("/l/a", 50)]),
+                ],
+                scanDuration: 0
+            ),
+            ModuleScanResult(
+                moduleID: "malware",
+                moduleName: "Malware",
+                categories: [
+                    ScanResult(category: .malware, items: [
+                        item("/m/a", 3),
+                        item("/m/b", 4),
+                    ]),
+                ],
+                scanDuration: 0
+            ),
+            ModuleScanResult(
+                moduleID: "privacy",
+                moduleName: "Privacy",
+                categories: [
+                    ScanResult(category: .browserPrivacy, items: [item("/p/a", 7)]),
+                    ScanResult(category: .systemPrivacy, items: [
+                        item("/p/b", 8),
+                        item("/p/c", 9),
+                    ]),
+                ],
+                scanDuration: 0
+            ),
+        ]
+
+        let summary = SmartScanCleanup.findingSummary(from: modules)
+
+        XCTAssertEqual(summary.cleanupBytes, 150)
+        XCTAssertEqual(summary.malwareCount, 2)
+        XCTAssertEqual(summary.privacyCount, 3)
+        XCTAssertEqual(summary.totalBytes, 181)
+        XCTAssertEqual(summary.totalItemCount, 7)
+    }
+
+    func testFindingSummaryDedupesSameURLAcrossCategories() {
+        let sharedSmall = item("/shared", 40)
+        let sharedLarge = item("/shared", 55)
+
+        let modules = [
+            ModuleScanResult(
+                moduleID: "system_junk",
+                moduleName: "System Junk",
+                categories: [
+                    ScanResult(category: .userCaches, items: [sharedSmall]),
+                    ScanResult(category: .trashBins, items: [sharedLarge]),
+                ],
+                scanDuration: 0
+            ),
+        ]
+
+        let summary = SmartScanCleanup.findingSummary(from: modules)
+
+        XCTAssertEqual(summary.cleanupBytes, 55)
+        XCTAssertEqual(summary.totalBytes, 55)
+        XCTAssertEqual(summary.totalItemCount, 1)
+    }
+
+    func testExecutionSummaryUsesActualCategorySemanticsAndDedupesURLs() {
+        let trash = item("/tmp/trashable", 1)
+        let permanent = item("/tmp/permanent", 1)
+        let thin = item("/tmp/thin", 1)
+        let shared = item("/tmp/shared", 1)
+
+        let modules = [
+            ModuleScanResult(
+                moduleID: "mixed",
+                moduleName: "Mixed",
+                categories: [
+                    ScanResult(category: .userCaches, items: [trash, shared]),
+                    ScanResult(category: .trashBins, items: [permanent, shared]),
+                    ScanResult(category: .universalBinaries, items: [thin]),
+                ],
+                scanDuration: 0
+            ),
+        ]
+
+        let summary = SmartScanCleanup.executionSummary(
+            from: modules,
+            selectedItems: Set([trash.url, permanent.url, thin.url, shared.url])
+        )
+
+        XCTAssertEqual(summary.movedToTrashCount, 1)
+        XCTAssertEqual(summary.permanentlyDeletedCount, 2)
+        XCTAssertEqual(summary.thinnedInPlaceCount, 1)
+        XCTAssertEqual(summary.totalCount, 4)
+        XCTAssertTrue(summary.hasIrreversibleDelete)
+        XCTAssertTrue(summary.hasInPlaceMutation)
+    }
+
+    func testExecutionSummaryAfterPartialCleanUsesOnlySuccessfulURLs() {
+        let trash = item("/tmp/trashable", 1)
+        let permanent = item("/tmp/permanent", 1)
+        let thin = item("/tmp/thin", 1)
+
+        let modules = [
+            ModuleScanResult(
+                moduleID: "mixed",
+                moduleName: "Mixed",
+                categories: [
+                    ScanResult(category: .userCaches, items: [trash]),
+                    ScanResult(category: .trashBins, items: [permanent]),
+                    ScanResult(category: .universalBinaries, items: [thin]),
+                ],
+                scanDuration: 0
+            ),
+        ]
+
+        let summary = SmartScanCleanup.executionSummary(
+            from: modules,
+            selectedItems: Set([trash.url, thin.url])
+        )
+
+        XCTAssertEqual(summary.movedToTrashCount, 1)
+        XCTAssertEqual(summary.permanentlyDeletedCount, 0)
+        XCTAssertEqual(summary.thinnedInPlaceCount, 1)
+    }
+
     func testRecentlyCleanedBreakdownGroupsSelectedItemsByModule() {
         let modules = [
             ModuleScanResult(

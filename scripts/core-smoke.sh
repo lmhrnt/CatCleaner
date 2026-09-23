@@ -142,6 +142,100 @@ SWIFT
 xcrun swiftc -parse-as-library   -I "$PRODUCT_DIR"   Sources/MacClean/Core/Scanner/ScanCoordinator.swift   "$TMP/smartscan-catalog-smoke.swift"   "$MACCLEANKIT_OBJECT"   -o "$TMP/smartscan-catalog-smoke"
 "$TMP/smartscan-catalog-smoke"
 
+say "Smart Scan result/execution semantics"
+cat >"$TMP/smartscan-semantics-smoke.swift" <<'SWIFT'
+import Foundation
+import MacCleanKit
+
+func item(_ path: String, _ size: UInt64) -> FileItem {
+    FileItem(
+        url: URL(fileURLWithPath: path),
+        name: URL(fileURLWithPath: path).lastPathComponent,
+        size: size,
+        allocatedSize: size,
+        isDirectory: false
+    )
+}
+
+func require(_ condition: @autoclosure () -> Bool, _ message: String) {
+    if !condition() {
+        fputs("FAIL: \(message)\n", stderr)
+        exit(1)
+    }
+}
+
+@main
+struct Main {
+    static func main() {
+        let trash = item("/tmp/trashable", 100)
+        let permanent = item("/tmp/permanent", 20)
+        let thin = item("/tmp/thin", 30)
+        let shared = item("/tmp/shared", 40)
+
+        let modules = [
+            ModuleScanResult(
+                moduleID: "system_junk",
+                moduleName: "System Junk",
+                categories: [
+                    ScanResult(category: .userCaches, items: [trash, shared]),
+                    ScanResult(category: .trashBins, items: [permanent, shared]),
+                    ScanResult(category: .universalBinaries, items: [thin]),
+                ],
+                scanDuration: 0
+            ),
+            ModuleScanResult(
+                moduleID: "malware",
+                moduleName: "Malware",
+                categories: [
+                    ScanResult(category: .malware, items: [
+                        item("/tmp/m1", 3), item("/tmp/m2", 4),
+                    ]),
+                ],
+                scanDuration: 0
+            ),
+            ModuleScanResult(
+                moduleID: "privacy",
+                moduleName: "Privacy",
+                categories: [
+                    ScanResult(category: .browserPrivacy, items: [item("/tmp/p1", 7)]),
+                    ScanResult(category: .systemPrivacy, items: [
+                        item("/tmp/p2", 8), item("/tmp/p3", 9),
+                    ]),
+                ],
+                scanDuration: 0
+            ),
+        ]
+
+        let findings = SmartScanCleanup.findingSummary(from: modules)
+        require(findings.cleanupBytes == 190, "cleanup bytes must exclude malware/privacy and dedupe URLs")
+        require(findings.malwareCount == 2, "malware count")
+        require(findings.privacyCount == 3, "privacy count")
+        require(findings.totalBytes == 221, "total bytes must dedupe URLs")
+        require(findings.totalItemCount == 9, "total item count must dedupe URLs")
+
+        let execution = SmartScanCleanup.executionSummary(
+            from: modules,
+            selectedItems: Set([trash.url, permanent.url, thin.url, shared.url])
+        )
+        require(execution.movedToTrashCount == 1, "recoverable Trash count")
+        require(execution.permanentlyDeletedCount == 2, "permanent must win for shared URL")
+        require(execution.thinnedInPlaceCount == 1, "in-place thin count")
+        require(execution.totalCount == 4, "execution URL dedupe")
+
+        let actualSuccess = SmartScanCleanup.executionSummary(
+            from: modules,
+            selectedItems: Set([trash.url, thin.url])
+        )
+        require(actualSuccess.permanentlyDeletedCount == 0, "post-clean summary invented permanent delete")
+
+        print("SMART_SCAN_RESULT_SEMANTICS_SMOKE_PASS")
+    }
+}
+SWIFT
+
+xcrun swiftc -parse-as-library   -I "$PRODUCT_DIR"   Sources/MacClean/Views/SmartScan/SmartScanCleanup.swift   "$TMP/smartscan-semantics-smoke.swift"   "$MACCLEANKIT_OBJECT"   -o "$TMP/smartscan-semantics-smoke"
+"$TMP/smartscan-semantics-smoke"
+
 say "synthetic duplicate pipeline"
 cat >"$TMP/duplicate-smoke.swift" <<'SWIFT'
 import Foundation

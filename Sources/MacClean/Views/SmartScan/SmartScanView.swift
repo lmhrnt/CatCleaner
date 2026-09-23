@@ -31,10 +31,17 @@ struct SmartScanView: View {
     enum SmartScanState {
         case idle
         case scanning(phase: String, progress: Double, filesFound: Int, sizeFound: UInt64)
-        case results(cleanup: UInt64, protection: Int, performance: Int, totalSize: UInt64, moduleResults: [ModuleScanResult])
+        case results(
+            summary: SmartScanCleanup.FindingSummary,
+            moduleResults: [ModuleScanResult]
+        )
         case empty
         case cleaning(progress: Double)
-        case done(freedSize: UInt64, breakdown: [SmartScanCleanup.RecentlyCleanedRow])
+        case done(
+            processedSize: UInt64,
+            breakdown: [SmartScanCleanup.RecentlyCleanedRow],
+            execution: SmartScanCleanup.ExecutionSummary
+        )
     }
 
     /// Derived from ScanCoordinator's actual registered + included modules so
@@ -83,14 +90,18 @@ struct SmartScanView: View {
                 idleView
             case .scanning(let phase, let progress, let filesFound, let sizeFound):
                 scanningView(phase: phase, progress: progress, filesFound: filesFound, sizeFound: sizeFound)
-            case .results(_, _, _, let totalSize, _):
-                resultsView(totalSize: totalSize)
+            case .results(let summary, _):
+                resultsView(summary: summary)
             case .empty:
                 emptyView
             case .cleaning(let progress):
                 cleaningView(progress: progress)
-            case .done(let freedSize, let breakdown):
-                doneView(freedSize: freedSize, breakdown: breakdown)
+            case .done(let processedSize, let breakdown, let execution):
+                doneView(
+                    processedSize: processedSize,
+                    breakdown: breakdown,
+                    execution: execution
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -294,22 +305,37 @@ struct SmartScanView: View {
 
     // MARK: - Results
 
-    private func resultsView(totalSize: UInt64) -> some View {
+    private func resultsView(
+        summary: SmartScanCleanup.FindingSummary
+    ) -> some View {
         VStack(spacing: 20) {
-            SizeDisplay(size: totalSize, label: L10n.tr("发现的垃圾", "of junk found", "найдено мусора"))
-                .foregroundStyle(.primary)
-                .padding(.top, 24)
+            SizeDisplay(
+                size: summary.cleanupBytes,
+                label: L10n.tr(
+                    "清理候选",
+                    "cleanup candidates",
+                    "кандидатов на очистку"
+                )
+            )
+            .foregroundStyle(.primary)
+            .padding(.top, 24)
 
             HStack(spacing: 24) {
-                if case .results(let cleanup, _, _, _, _) = scanState {
-                    resultPill(icon: "trash.circle.fill", label: L10n.tr("清理", "Cleanup", "Очистка"), value: FileSizeFormatter.format(cleanup))
-                }
-                if case .results(_, let threats, _, _, _) = scanState {
-                    resultPill(icon: "shield.lefthalf.filled", label: L10n.tr("防护", "Protection", "Защита"), value: L10n.tr("\(threats) 个威胁", "\(threats) threats", "\(threats) \(L10n.russianPlural(threats, one: "угроза", few: "угрозы", many: "угроз"))"))
-                }
-                if case .results(_, _, let perf, _, _) = scanState {
-                    resultPill(icon: "gauge.with.dots.needle.67percent", label: L10n.tr("加速", "Speed", "Ускорение"), value: L10n.tr("\(perf) 项", "\(perf) items", "\(perf) \(L10n.russianPlural(perf, one: "объект", few: "объекта", many: "объектов"))"))
-                }
+                resultPill(
+                    icon: "trash.circle.fill",
+                    label: L10n.tr("清理", "Cleanup", "Очистка"),
+                    value: FileSizeFormatter.format(summary.cleanupBytes)
+                )
+                resultPill(
+                    icon: "shield.lefthalf.filled",
+                    label: L10n.tr("恶意项目", "Malware", "Вредоносное ПО"),
+                    value: summary.malwareCount.formatted()
+                )
+                resultPill(
+                    icon: "hand.raised.fill",
+                    label: L10n.tr("隐私痕迹", "Privacy traces", "Следы конфиденциальности"),
+                    value: summary.privacyCount.formatted()
+                )
             }
 
             // Fill the remaining height so the list is tall enough to review
@@ -342,13 +368,95 @@ struct SmartScanView: View {
                     Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { }
                     Button(L10n.tr("清理", "Clean", "Очистить"), role: .destructive) { runCleanup() }
                 } message: {
-                    Text(L10n.tr("选中的项目会移到废纸篓，如有需要仍可恢复。", "Selected items will be moved to the Trash so you can recover them if needed.", "Выбранные объекты будут перемещены в Корзину, откуда при необходимости их можно восстановить."))
+                    Text(cleanConfirmationMessage(selectedExecutionSummary))
                 }
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
         .padding(.horizontal, 20)
+    }
+
+    private var selectedExecutionSummary: SmartScanCleanup.ExecutionSummary {
+        guard case .results(_, let moduleResults) = scanState else {
+            return .empty
+        }
+        return SmartScanCleanup.executionSummary(
+            from: moduleResults,
+            selectedItems: selectedItems
+        )
+    }
+
+    private func cleanConfirmationMessage(
+        _ summary: SmartScanCleanup.ExecutionSummary
+    ) -> String {
+        var clauses: [String] = []
+
+        if summary.movedToTrashCount > 0 {
+            clauses.append(L10n.tr(
+                "\(summary.movedToTrashCount) 项会移到垃圾桶，可从垃圾桶恢复。",
+                "\(summary.movedToTrashCount) item(s) will move to Trash and remain recoverable there.",
+                "\(summary.movedToTrashCount) \(L10n.russianPlural(summary.movedToTrashCount, one: "объект будет перемещён", few: "объекта будут перемещены", many: "объектов будут перемещены")) в Корзину и останутся восстанавливаемыми."
+            ))
+        }
+
+        if summary.permanentlyDeletedCount > 0 {
+            clauses.append(L10n.tr(
+                "\(summary.permanentlyDeletedCount) 项当前位于垃圾桶中的内容会被永久删除，无法恢复。",
+                "\(summary.permanentlyDeletedCount) item(s) already in Trash will be permanently deleted and cannot be recovered.",
+                "\(summary.permanentlyDeletedCount) \(L10n.russianPlural(summary.permanentlyDeletedCount, one: "объект из Корзины будет удалён", few: "объекта из Корзины будут удалены", many: "объектов из Корзины будут удалены")) без возможности восстановления."
+            ))
+        }
+
+        if summary.thinnedInPlaceCount > 0 {
+            clauses.append(L10n.tr(
+                "\(summary.thinnedInPlaceCount) 个 App 会原地精简通用二进制，不会移到垃圾桶。",
+                "\(summary.thinnedInPlaceCount) app(s) will be thinned in place; they will not be moved to Trash.",
+                "У \(summary.thinnedInPlaceCount) \(L10n.russianPlural(summary.thinnedInPlaceCount, one: "приложения", few: "приложений", many: "приложений")) бинарные файлы будут уменьшены на месте без перемещения в Корзину."
+            ))
+        }
+
+        if clauses.isEmpty {
+            return L10n.tr(
+                "当前选择没有可执行的清理项目。",
+                "The current selection contains no executable cleanup items.",
+                "В текущем выборе нет элементов, доступных для очистки."
+            )
+        }
+
+        return clauses.joined(separator: "\n")
+    }
+
+    private func completedExecutionMessage(
+        _ summary: SmartScanCleanup.ExecutionSummary
+    ) -> String {
+        var clauses: [String] = []
+
+        if summary.movedToTrashCount > 0 {
+            clauses.append(L10n.tr(
+                "\(summary.movedToTrashCount) 项已移到垃圾桶；清空垃圾桶前仍会占用磁碟空间。",
+                "\(summary.movedToTrashCount) item(s) were moved to Trash; they still consume disk space until Trash is emptied.",
+                "\(summary.movedToTrashCount) \(L10n.russianPlural(summary.movedToTrashCount, one: "объект перемещён", few: "объекта перемещены", many: "объектов перемещены")) в Корзину и продолжают занимать место до её очистки."
+            ))
+        }
+
+        if summary.permanentlyDeletedCount > 0 {
+            clauses.append(L10n.tr(
+                "\(summary.permanentlyDeletedCount) 项垃圾桶内容已永久删除，无法恢复。",
+                "\(summary.permanentlyDeletedCount) Trash item(s) were permanently deleted and cannot be recovered.",
+                "\(summary.permanentlyDeletedCount) \(L10n.russianPlural(summary.permanentlyDeletedCount, one: "объект из Корзины удалён", few: "объекта из Корзины удалены", many: "объектов из Корзины удалены")) без возможности восстановления."
+            ))
+        }
+
+        if summary.thinnedInPlaceCount > 0 {
+            clauses.append(L10n.tr(
+                "\(summary.thinnedInPlaceCount) 个 App 已原地精简通用二进制。",
+                "\(summary.thinnedInPlaceCount) app(s) were thinned in place.",
+                "У \(summary.thinnedInPlaceCount) \(L10n.russianPlural(summary.thinnedInPlaceCount, one: "приложения", few: "приложений", many: "приложений")) бинарные файлы были уменьшены на месте."
+            ))
+        }
+
+        return clauses.joined(separator: "\n")
     }
 
     /// Total number of cleanable items found (across all categories).
@@ -419,17 +527,24 @@ struct SmartScanView: View {
         }
     }
 
-    private func doneView(freedSize: UInt64, breakdown: [SmartScanCleanup.RecentlyCleanedRow]) -> some View {
+    private func doneView(
+        processedSize: UInt64,
+        breakdown: [SmartScanCleanup.RecentlyCleanedRow],
+        execution: SmartScanCleanup.ExecutionSummary
+    ) -> some View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 52))
                 .foregroundStyle(.primary)
-            Text(L10n.tr("已移到废纸篓", "Moved to the Trash", "Перемещено в Корзину"))
+            Text(L10n.tr("清理完成", "Cleanup complete", "Очистка завершена"))
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.primary)
-            SizeDisplay(size: freedSize, label: L10n.tr("可回收", "ready to reclaim", "можно освободить"))
-                .foregroundStyle(.primary)
+            SizeDisplay(
+                size: processedSize,
+                label: L10n.tr("已处理容量", "data processed", "обработано данных")
+            )
+            .foregroundStyle(.primary)
 
             if !breakdown.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -460,11 +575,12 @@ struct SmartScanView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
-            Text(L10n.tr("你选择的项目已在废纸篓中——需要时可以恢复。若要彻底删除，请打开“废纸篓”模块并清空。", "Your selected items are in the Trash — recover anything you need. To erase them for good, open Trash Bins and empty it.", "Выбранные объекты находятся в Корзине — при необходимости их можно восстановить. Чтобы удалить их окончательно, откройте раздел «Корзины» и очистите корзины."))
+            Text(completedExecutionMessage(execution))
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.65))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
+                .frame(maxWidth: 460)
+                .textSelection(.enabled)
             Button(L10n.tr("完成", "Done", "Готово")) { resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
@@ -583,17 +699,14 @@ struct SmartScanView: View {
                         ))
                     }
 
-                    let totalSize = results.reduce(0 as UInt64) { $0 + $1.totalSize }
-                    if totalSize == 0 && results.allSatisfy({ $0.totalFileCount == 0 }) {
+                    let summary = SmartScanCleanup.findingSummary(from: results)
+                    if summary.totalItemCount == 0 {
                         scanState = .empty
                     } else {
                         cleanResults = SmartScanCleanup.allResults(from: results)
                         selectedItems = SmartScanCleanup.defaultSelection(from: results)
                         scanState = .results(
-                            cleanup: totalSize,
-                            protection: 0,
-                            performance: 0,
-                            totalSize: totalSize,
+                            summary: summary,
                             moduleResults: results
                         )
                     }
@@ -616,7 +729,7 @@ struct SmartScanView: View {
         // Snapshot the inputs up-front so the background task can't observe
         // later selection or scan-state mutations.
         let modules: [ModuleScanResult]
-        if case .results(_, _, _, _, let moduleResults) = scanState {
+        if case .results(_, let moduleResults) = scanState {
             modules = moduleResults
         } else {
             modules = []
@@ -642,7 +755,15 @@ struct SmartScanView: View {
                 from: modules,
                 selectedItems: result.removedURLs
             )
-            scanState = .done(freedSize: result.freedBytes, breakdown: breakdown)
+            let execution = SmartScanCleanup.executionSummary(
+                from: modules,
+                selectedItems: result.removedURLs
+            )
+            scanState = .done(
+                processedSize: result.freedBytes,
+                breakdown: breakdown,
+                execution: execution
+            )
         }
     }
 }
