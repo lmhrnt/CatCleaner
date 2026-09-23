@@ -18,9 +18,9 @@ public struct ShredderModule: ScanModule {
 
 public actor SecureEraser {
     public enum EraseMode: Sendable {
-        case standard   // Move to trash (recoverable)
-        case permanent  // Remove immediately (TRIM handles SSD cleanup)
-        case secure     // Overwrite then remove (best effort on SSD)
+        case standard   // Move to Trash (recoverable)
+        case permanent  // Remove immediately; no physical-overwrite guarantee
+        case secure     // Logical overwrite then remove (best effort on SSD/APFS)
     }
 
     private enum EraseError: LocalizedError {
@@ -105,10 +105,15 @@ public actor SecureEraser {
     }
 
     private func secureOverwrite(_ url: URL) throws {
-        // On SSDs, TRIM handles physical block zeroing automatically after deletion.
-        // This overwrite is best-effort: it writes over the logical file content,
-        // but the SSD controller may redirect the write to a new physical block.
-        // For true security, recommend FileVault (full-disk encryption).
+        // Best-effort only. On APFS/SSDs, copy-on-write, wear
+        // leveling, controller remapping, and snapshots can leave older physical
+        // blocks outside this file handle's reach. TRIM marks logical blocks as
+        // no longer needed but does not provide a synchronous proof that every
+        // NAND cell containing prior data has been erased.
+        //
+        // For sensitive data, full-disk encryption (FileVault) is the meaningful
+        // protection boundary; destroying/deauthorizing encryption keys is
+        // stronger than pretending repeated logical overwrites control NAND.
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey, .isSymbolicLinkKey])
         // Refuse directories: returning here would let the caller recursively
         // remove their contents without overwriting any of the files.

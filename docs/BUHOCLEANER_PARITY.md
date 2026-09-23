@@ -36,7 +36,7 @@
 | 一鍵釋放 RAM | ✅ | Maintenance / Free Up RAM |
 | Spotlight 重建 | ✅ | Maintenance / Spotlight Reindex |
 | DNS 快取重置 | ✅ | Maintenance / DNS Flush |
-| 碎紙機 | ✅ | Shredder；與一般 Trash-first 清理分開 |
+| 碎紙機 | 🛡️ | Trash／立即刪除／單次邏輯覆寫後刪除；明確提示 APFS/SSD 無法保證物理 NAND 抹除 |
 | Docker 清理 | 🛡️ | 使用 Docker 自身清理未使用資源；不直接刪 volume |
 | 開發工具垃圾 | ✅ | Xcode / package manager / IDE caches |
 | AI 工具/模型/VM 儲存 | 🛡️ | Developer Cleanup；active owner gate、retentionReview、reportOnly |
