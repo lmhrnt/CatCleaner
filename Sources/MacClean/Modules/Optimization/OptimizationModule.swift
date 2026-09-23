@@ -49,12 +49,40 @@ public struct AutoStartItem: Identifiable, Sendable {
         guard let p = programPath else { return false }
         return !p.isEmpty
     }
+
+    public var canToggle: Bool {
+        switch sourceType {
+        case .loginItem:
+            return hasAppPath
+        case .launchAgent, .launchDaemon:
+            return !isSystem
+        }
+    }
 }
 
 // MARK: - Unified Auto-Start Manager
 
 public final class AutoStartManager: @unchecked Sendable {
-    public init() {}
+    static let disabledLoginItemsKey =
+        "catcleaner.optimization.disabled-login-items-v1"
+
+    private let defaults: UserDefaults
+    private let loginItemProvider: () -> [AutoStartItem]
+
+    public convenience init(defaults: UserDefaults = .standard) {
+        self.init(
+            defaults: defaults,
+            loginItemProvider: { Self.loadLoginItemsViaSystemEvents() }
+        )
+    }
+
+    init(
+        defaults: UserDefaults,
+        loginItemProvider: @escaping () -> [AutoStartItem]
+    ) {
+        self.defaults = defaults
+        self.loginItemProvider = loginItemProvider
+    }
 
     // MARK: Public API
 
@@ -70,7 +98,51 @@ public final class AutoStartManager: @unchecked Sendable {
     }
 
     public func getLoginItems() -> [AutoStartItem] {
-        loadLoginItemsViaSystemEvents()
+        let activeItems = loginItemProvider()
+        let activePaths = Set(activeItems.compactMap(\.programPath))
+
+        var remembered = rememberedDisabledLoginItems()
+        var changed = false
+
+        // If the user re-enabled an item outside CatCleaner, System Events sees
+        // it as active again. Drop the stale remembered-disabled record.
+        for path in activePaths where remembered.removeValue(forKey: path) != nil {
+            changed = true
+        }
+
+        var disabledItems: [AutoStartItem] = []
+        for (path, storedName) in remembered.sorted(by: { $0.key < $1.key }) {
+            guard FileManager.default.fileExists(atPath: path) else {
+                remembered.removeValue(forKey: path)
+                changed = true
+                continue
+            }
+
+            let url = URL(fileURLWithPath: path)
+            let displayName = storedName.isEmpty
+                ? FileManager.default.displayName(atPath: path)
+                : storedName
+
+            disabledItems.append(
+                AutoStartItem(
+                    name: displayName,
+                    bundleIdentifier: Bundle(url: url)?.bundleIdentifier,
+                    programPath: path,
+                    configFilePath: path,
+                    sourceType: .loginItem,
+                    isSystem: false,
+                    isEnabled: false
+                )
+            )
+        }
+
+        if changed {
+            storeDisabledLoginItems(remembered)
+        }
+
+        return (activeItems + disabledItems).sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
 
     public func getLaunchAgents() -> [AutoStartItem] {
@@ -86,17 +158,62 @@ public final class AutoStartManager: @unchecked Sendable {
 
     // MARK: Toggle
 
-    public enum ToggleError: Error {
+    public enum ToggleError: LocalizedError {
         case systemItemReadOnly
         case unreadablePlist
+        case loginItemPathUnavailable
         case sfltoolFailed(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .systemItemReadOnly:
+                return L10n.tr(
+                    "系统启动项为只读。",
+                    "System startup items are read-only.",
+                    "Системные элементы автозапуска доступны только для чтения."
+                )
+            case .unreadablePlist:
+                return L10n.tr(
+                    "无法读取此启动项配置。",
+                    "This startup-item configuration could not be read.",
+                    "Не удалось прочитать конфигурацию элемента автозапуска."
+                )
+            case .loginItemPathUnavailable:
+                return L10n.tr(
+                    "此登录项没有可验证的应用路径，因此 CatCleaner 不会直接修改它。",
+                    "This login item has no verifiable app path, so CatCleaner will not modify it directly.",
+                    "У этого объекта входа нет проверяемого пути к приложению, поэтому CatCleaner не будет изменять его напрямую."
+                )
+            case .sfltoolFailed(let message):
+                let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty
+                    ? L10n.tr(
+                        "修改登录项失败。",
+                        "Failed to change the login item.",
+                        "Не удалось изменить объект входа."
+                    )
+                    : trimmed
+            }
+        }
     }
 
     public func toggleItem(_ item: AutoStartItem, enabled: Bool) throws {
         switch item.sourceType {
         case .loginItem:
-            guard let bid = item.bundleIdentifier else { return }
-            try toggleLoginItem(bundleId: bid, enabled: enabled)
+            guard let path = item.programPath, !path.isEmpty else {
+                throw ToggleError.loginItemPathUnavailable
+            }
+
+            try toggleLoginItem(path: path, enabled: enabled)
+
+            var remembered = rememberedDisabledLoginItems()
+            if enabled {
+                remembered.removeValue(forKey: path)
+            } else {
+                remembered[path] = item.name
+            }
+            storeDisabledLoginItems(remembered)
+
         case .launchAgent, .launchDaemon:
             try togglePlistItem(item, enabled: enabled)
         }
@@ -120,94 +237,78 @@ public final class AutoStartManager: @unchecked Sendable {
     /// via System Events (AppleScript). This is the only reliable API on macOS 15+
     /// — sfltool dumpbtm only returns system-level items (UID -2), and the old
     /// backgrounditems.btm plist path no longer exists.
-    private func loadLoginItemsViaSystemEvents() -> [AutoStartItem] {
+    private struct SystemEventsLoginItemRecord: Decodable {
+        let name: String
+        let path: String?
+        let hidden: Bool
+    }
+
+    private static func loadLoginItemsViaSystemEvents() -> [AutoStartItem] {
         let script = """
-        tell application "System Events"
-            set loginItemsList to {}
-            repeat with loginItem in every login item
-                set end of loginItemsList to {name:name of loginItem, path:path of loginItem, hidden:hidden of loginItem}
-            end repeat
-            return loginItemsList
-        end tell
+        const se = Application('System Events');
+        const items = se.loginItems().map(item => {
+          let path = null;
+          try {
+            const value = item.path();
+            if (value !== null && value !== undefined && String(value) !== "missing value") {
+              path = String(value);
+            }
+          } catch (_) {}
+          return {
+            name: String(item.name()),
+            path,
+            hidden: Boolean(item.hidden())
+          };
+        });
+        JSON.stringify(items);
         """
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
+        let result = Self.runOsaScript(
+            arguments: ["-l", "JavaScript", "-e", script]
+        )
+        guard result.exitCode == 0 else { return [] }
 
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
+        return Self.parseSystemEventsLoginItems(
+            result.output,
+            bundleIdentifierForPath: { path in
+                Bundle(url: URL(fileURLWithPath: path))?.bundleIdentifier
+            }
+        )
+    }
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
+    static func parseSystemEventsLoginItems(
+        _ output: String,
+        bundleIdentifierForPath: (String) -> String?
+    ) -> [AutoStartItem] {
+        guard let data = output.data(using: .utf8),
+              let records = try? JSONDecoder().decode(
+                [SystemEventsLoginItemRecord].self,
+                from: data
+              )
+        else {
             return []
         }
 
-        guard process.terminationStatus == 0 else { return [] }
+        return records.compactMap { record in
+            let trimmedName = record.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else { return nil }
 
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else { return [] }
-
-        return parseOsascriptLoginItems(output)
-    }
-
-    /// Parse AppleScript output like:
-    ///   name:com.example.app, path:/Applications/Example.app, hidden:false
-    private func parseOsascriptLoginItems(_ output: String) -> [AutoStartItem] {
-        var items: [AutoStartItem] = []
-        for line in output.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { continue }
-
-            // Parse key:value pairs separated by commas
-            var name: String?
-            var path: String?
-            var hidden = false
-
-            for pair in trimmed.components(separatedBy: ", ") {
-                let kv = pair.split(separator: ":", maxSplits: 1).map(String.init)
-                guard kv.count == 2 else { continue }
-                let key = kv[0].trimmingCharacters(in: .whitespaces)
-                let val = kv[1].trimmingCharacters(in: .whitespaces)
-                switch key {
-                case "name": name = val
-                case "path": path = val
-                case "hidden": hidden = (val.lowercased() == "true")
-                default: break
-                }
+            let path = record.path.flatMap { raw -> String? in
+                let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty, trimmed != "missing value" else { return nil }
+                return trimmed
             }
 
-            guard let bundleId = name, !bundleId.isEmpty else { continue }
-
-            let displayName: String
-            let resolvedPath: String?
-            if let p = path, FileManager.default.fileExists(atPath: p) {
-                var raw = FileManager.default.displayName(atPath: p)
-                if raw.hasSuffix(".app") {
-                    raw = String(raw.dropLast(4))
-                }
-                displayName = raw
-                resolvedPath = p
-            } else {
-                displayName = bundleId
-                resolvedPath = resolveAppPath(bundleId: bundleId, path: path)
-            }
-
-            items.append(AutoStartItem(
-                name: displayName,
-                bundleIdentifier: bundleId,
-                programPath: resolvedPath,
+            return AutoStartItem(
+                name: trimmedName,
+                bundleIdentifier: path.flatMap(bundleIdentifierForPath),
+                programPath: path,
                 configFilePath: path,
                 sourceType: .loginItem,
                 isSystem: false,
                 isEnabled: true
-            ))
+            )
         }
-        return items
     }
 
     @available(*, deprecated, message: "sfltool dumpbtm only shows system-level items, not user login items")
@@ -259,85 +360,93 @@ public final class AutoStartManager: @unchecked Sendable {
 
     // MARK: - Helpers
 
-    private func resolveAppName(bundleId: String, path: String?) -> String? {
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            return FileManager.default.displayName(atPath: url.path)
-        }
-        if let p = path {
-            let expanded = (p as NSString).expandingTildeInPath
-            if FileManager.default.fileExists(atPath: expanded) {
-                return FileManager.default.displayName(atPath: expanded)
-            }
-        }
-        return nil
-    }
-
     private func resolveAppNameFromPath(_ path: String) -> String? {
         let expanded = (path as NSString).expandingTildeInPath
         guard FileManager.default.fileExists(atPath: expanded) else { return nil }
         return FileManager.default.displayName(atPath: expanded)
     }
 
-    private func resolveAppPath(bundleId: String, path: String?) -> String? {
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            return url.path
-        }
-        if let p = path {
-            let expanded = (p as NSString).expandingTildeInPath
-            if FileManager.default.fileExists(atPath: expanded) {
-                return expanded
-            }
-        }
-        return nil
+    private func rememberedDisabledLoginItems() -> [String: String] {
+        defaults.dictionary(forKey: Self.disabledLoginItemsKey) as? [String: String] ?? [:]
+    }
+
+    private func storeDisabledLoginItems(_ items: [String: String]) {
+        defaults.set(items, forKey: Self.disabledLoginItemsKey)
     }
 
     // MARK: - Toggle Implementations
 
-    private func toggleLoginItem(bundleId: String, enabled: Bool) throws {
-        // Use AppleScript via System Events to add/remove the login item.
-        // This matches what System Settings → General → Login Items does.
+
+    private func toggleLoginItem(path: String, enabled: Bool) throws {
         let script: String
         if enabled {
-            // When enabling, we need the app path. Look it up from bundle ID.
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-                throw ToggleError.sfltoolFailed("Cannot find app for bundle ID: \(bundleId)")
-            }
-            // Escape backslash and double-quote so a path like /Apps/foo".app
-            // cannot break out of the AppleScript string literal.
-            let escapedPath = url.path
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
             script = """
-            tell application "System Events"
-                make new login item at end with properties {path:"\(escapedPath)", hidden:false}
-            end tell
+            on run argv
+                if (count of argv) is not 1 then error "expected one login-item path"
+                set targetPath to item 1 of argv
+                tell application "System Events"
+                    make new login item at end with properties {path:targetPath, hidden:false}
+                end tell
+            end run
             """
         } else {
-            let escapedId = bundleId
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
             script = """
-            tell application "System Events"
-                delete login item "\(escapedId)"
-            end tell
+            on run argv
+                if (count of argv) is not 1 then error "expected one login-item path"
+                set targetPath to item 1 of argv
+                tell application "System Events"
+                    repeat with loginItem in every login item
+                        try
+                            set itemPath to path of loginItem
+                            if itemPath is not missing value and (itemPath as text) is targetPath then
+                                delete loginItem
+                                return "removed"
+                            end if
+                        end try
+                    end repeat
+                end tell
+                error "no login item matched the requested path"
+            end run
             """
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
+        let result = Self.runOsaScript(
+            arguments: ["-e", script, "--", path]
+        )
+        guard result.exitCode == 0 else {
+            throw ToggleError.sfltoolFailed(result.output)
+        }
+    }
 
+    private struct ScriptResult {
+        let exitCode: Int32
+        let output: String
+    }
+
+    private static func runOsaScript(arguments: [String]) -> ScriptResult {
+        let process = Process()
         let pipe = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = arguments
         process.standardOutput = pipe
         process.standardError = pipe
 
-        try process.run()
-        process.waitUntilExit()
-
-        if process.terminationStatus != 0 {
+        do {
+            try process.run()
+            // Drain output while the child runs. Waiting first can deadlock if
+            // an automation error or diagnostic exceeds the pipe buffer.
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-            throw ToggleError.sfltoolFailed(output)
+            process.waitUntilExit()
+            return ScriptResult(
+                exitCode: process.terminationStatus,
+                output: String(data: data, encoding: .utf8) ?? ""
+            )
+        } catch {
+            return ScriptResult(
+                exitCode: -1,
+                output: error.localizedDescription
+            )
         }
     }
 

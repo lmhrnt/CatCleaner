@@ -195,11 +195,16 @@ private struct ItemRow: View {
 
             Spacer(minLength: 0)
 
-            // Toggle (or lock for read-only system items)
-            if item.sourceType != .loginItem && item.isSystem {
+            // Toggle only when the item has a safe, verifiable mutation path.
+            if !item.canToggle {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
+                    .help(L10n.tr(
+                        "此项目没有可安全修改的路径",
+                        "This item has no safely modifiable path",
+                        "У этого элемента нет пути, который можно безопасно изменить"
+                    ))
             } else {
                 Toggle("", isOn: Binding(
                     get: { item.isEnabled },
