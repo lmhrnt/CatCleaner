@@ -16,6 +16,23 @@ final class FileConsolidatorTests: XCTestCase {
         let u = dir.appending(path: name); try bytes.write(to: u); return u
     }
 
+    private func setXattr(_ name: String, value: String, on url: URL) throws {
+        let result = try ProcessOutputCapture.run(
+            executable: URL(fileURLWithPath: "/usr/bin/xattr"),
+            arguments: ["-w", name, value, url.path(percentEncoded: false)]
+        )
+        XCTAssertEqual(result.exitCode, 0, result.stderr)
+    }
+
+    private func readXattr(_ name: String, from url: URL) throws -> String? {
+        let result = try ProcessOutputCapture.run(
+            executable: URL(fileURLWithPath: "/usr/bin/xattr"),
+            arguments: ["-p", name, url.path(percentEncoded: false)]
+        )
+        guard result.exitCode == 0 else { return nil }
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func testEligibleIdenticalFilesHaveNoIneligibilityReason() throws {
         let m = try write("m", Data("same".utf8))
         let c = try write("c", Data("same".utf8))
@@ -40,15 +57,43 @@ final class FileConsolidatorTests: XCTestCase {
             .notRegularFile)
     }
 
+    func testHardLinkedCopyIsNotEligibleForCloneSwap() throws {
+        let payload = Data("same".utf8)
+        let master = try write("master", payload)
+        let copy = try write("copy", payload)
+        let sibling = dir.appending(path: "copy-hardlink")
+        try FileManager.default.linkItem(at: copy, to: sibling)
+
+        XCTAssertEqual(
+            FileConsolidator.ineligibilityReason(
+                master: master,
+                copy: copy,
+                safetyGuard: SafetyGuard()
+            ),
+            .hardLinked
+        )
+        XCTAssertEqual(
+            FileConsolidator.consolidate(master: master, copy: copy),
+            .skipped(.hardLinked)
+        )
+        XCTAssertEqual(try Data(contentsOf: copy), payload)
+        XCTAssertEqual(try Data(contentsOf: sibling), payload)
+    }
+
     func testConsolidateKeepsBothFilesReclaimsAndPreservesCopyMetadata() throws {
         let payload = Data(repeating: 0xAB, count: 64 * 1024)
         let master = try write("master.bin", payload)
         let copy = try write("copy.bin", payload)
-        // Give the copy its own perms + mtime so we can prove they survive.
+        // Give master/copy conflicting metadata so we can prove the
+        // clone keeps COPY metadata authority rather than inheriting master.
         let mtime = Date(timeIntervalSince1970: 1_000_000)
         try FileManager.default.setAttributes(
             [.posixPermissions: NSNumber(value: Int16(0o644)), .modificationDate: mtime],
             ofItemAtPath: copy.path(percentEncoded: false))
+        try setXattr("com.catcleaner.master-only", value: "master-only", on: master)
+        try setXattr("com.catcleaner.shared", value: "master-value", on: master)
+        try setXattr("com.catcleaner.copy-only", value: "copy-only", on: copy)
+        try setXattr("com.catcleaner.shared", value: "copy-value", on: copy)
 
         let outcome = FileConsolidator.consolidate(master: master, copy: copy)
 
@@ -64,6 +109,18 @@ final class FileConsolidatorTests: XCTestCase {
         XCTAssertEqual((attrs[.posixPermissions] as? NSNumber)?.int16Value, 0o644)
         XCTAssertEqual((attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0,
                        mtime.timeIntervalSince1970, accuracy: 1)
+        XCTAssertEqual(
+            try readXattr("com.catcleaner.copy-only", from: copy),
+            "copy-only"
+        )
+        XCTAssertEqual(
+            try readXattr("com.catcleaner.shared", from: copy),
+            "copy-value"
+        )
+        XCTAssertNil(
+            try readXattr("com.catcleaner.master-only", from: copy),
+            "master-only xattr must not leak into the consolidated copy"
+        )
         // No leftover temp files in the directory.
         let names = try FileManager.default.contentsOfDirectory(atPath: dir.path(percentEncoded: false))
         XCTAssertEqual(names.filter { $0.contains("consolidate-") }, [])

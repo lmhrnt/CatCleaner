@@ -361,6 +361,7 @@ struct DuplicatesView: View {
         case .notSameVolume: L10n.tr("跨卷", "different volume", "другой том")
         case .cloningUnsupported: L10n.tr("非 APFS 卷", "not an APFS volume", "не том APFS")
         case .notRegularFile: L10n.tr("非普通文件", "not a regular file", "не обычный файл")
+        case .hardLinked: L10n.tr("硬链接文件", "hard-linked file", "файл с жёсткими ссылками")
         case .notWritable: L10n.tr("不可写", "not writable", "недоступно для записи")
         case .protectedPath: L10n.tr("受保护路径", "protected path", "защищённый путь")
         }

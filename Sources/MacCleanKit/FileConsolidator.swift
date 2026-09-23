@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 public enum ConsolidationOutcome: Equatable, Sendable {
     case reclaimed(bytes: UInt64)
@@ -11,6 +12,7 @@ public enum SkipReason: Equatable, Sendable {
     case notSameVolume
     case cloningUnsupported
     case notRegularFile
+    case hardLinked
     case notWritable
     case protectedPath
 }
@@ -58,6 +60,9 @@ public enum FileConsolidator {
     public static func ineligibilityReason(master: URL, copy: URL,
                                            safetyGuard: SafetyGuard) -> SkipReason? {
         guard isRegularFile(master), isRegularFile(copy) else { return .notRegularFile }
+        guard master.standardizedFileURL != copy.standardizedFileURL,
+              !hasMultipleHardLinks(copy)
+        else { return .hardLinked }
         guard sameVolume(master, copy) else { return .notSameVolume }
         guard supportsCloning(copy) else { return .cloningUnsupported }
         let fm = FileManager.default
@@ -72,6 +77,18 @@ public enum FileConsolidator {
         guard let v = try? url.resourceValues(
             forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isPackageKey]) else { return false }
         return (v.isRegularFile ?? false) && !(v.isSymbolicLink ?? false) && !(v.isPackage ?? false)
+    }
+
+    static func hasMultipleHardLinks(_ url: URL) -> Bool {
+        let path = url.path(percentEncoded: false)
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let count = (attrs[.referenceCount] as? NSNumber)?.uint64Value
+        else {
+            // Unknown link count is not enough evidence to reject a regular
+            // file; content/hash/atomic-swap gates still apply downstream.
+            return false
+        }
+        return count > 1
     }
 
     static func sameVolume(_ a: URL, _ b: URL) -> Bool {
@@ -105,10 +122,9 @@ public enum FileConsolidator {
         let fm = FileManager.default
         let copyPath = copy.path(percentEncoded: false)
 
-        // Snapshot metadata + allocated size (the reclaimed figure).
-        let attrs = try? fm.attributesOfItem(atPath: copyPath)
-        let perms = attrs?[.posixPermissions] as? NSNumber
-        let mtime = attrs?[.modificationDate] as? Date
+        // Snapshot allocated size (the reclaim estimate). Metadata itself
+        // stays authoritative on the original copy path until the final swap;
+        // we copy it wholesale onto the clone immediately before rename.
         let reclaimed = UInt64((try? copy.resourceValues(
             forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
 
@@ -128,11 +144,33 @@ public enum FileConsolidator {
             return .failed("clone verification failed for \(copyPath)")
         }
 
-        // Restore the copy's own permissions + mtime onto the clone.
-        var restore: [FileAttributeKey: Any] = [:]
-        if let perms { restore[.posixPermissions] = perms }
-        if let mtime { restore[.modificationDate] = mtime }
-        if !restore.isEmpty { try? fm.setAttributes(restore, ofItemAtPath: tempPath) }
+        // Restore the COPY's complete metadata authority onto the clone:
+        // POSIX stat fields, ACLs, extended attributes (Finder tags,
+        // quarantine, resource forks, etc.). copyfile(COPYFILE_METADATA)
+        // also removes clone-only xattrs inherited from the master.
+        let metadataFlags = copyfile_flags_t(
+            COPYFILE_METADATA | COPYFILE_NOFOLLOW
+        )
+        let metadataCopied = copyPath.withCString { source in
+            tempPath.withCString { destination in
+                copyfile(source, destination, nil, metadataFlags) == 0
+            }
+        }
+        guard metadataCopied else {
+            let code = errno
+            try? fm.removeItem(at: tempURL)
+            return .failed(
+                "metadata copy failed for \(copyPath): errno \(code)"
+            )
+        }
+
+        // Metadata copying must never alter the data fork. Re-hash before the
+        // atomic swap so any unexpected copyfile behavior fails closed while
+        // the original copy is still untouched.
+        guard FileHashing.sha256(tempURL) == masterHash else {
+            try? fm.removeItem(at: tempURL)
+            return .failed("metadata restore changed file content for \(copyPath)")
+        }
 
         // Atomic swap (same volume => rename is atomic). Original stays intact on failure.
         let swapped = tempPath.withCString { t in copyPath.withCString { c in rename(t, c) == 0 } }
