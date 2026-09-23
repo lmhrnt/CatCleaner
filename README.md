@@ -24,6 +24,12 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - Preferences / Containers / Group Containers / Keychain 不列入 orphan 清理
   - 同 vendor namespace 仍有已安裝 App 時保守保留 shared service/cache
   - reverse-DNS 格式收緊，避免 `catdesk-supervisor.launchd.err` 類一般 log 檔誤判
+- 卸載器新增「已移除 App 殘留」獨立頁：
+  - 只掃描 Caches、Logs、HTTPStorages、Saved Application State、WebKit 等安全殘留位置
+  - 只接受 reverse-DNS bundle ID，並保護 Apple / shared framework / SwiftPM 基礎設施
+  - 同 vendor sibling 採保守保留，避免把共享 updater/framework 當成孤兒
+  - 以標準 Applications 目錄 + LaunchServices 雙重交叉檢查；搬到其他資料夾或外接磁碟但仍已註冊的 App 也能阻擋誤判
+  - 預設零選取；人工勾選後仍走 CleaningEngine Trash-first，可從垃圾桶復原
 - 新增「相似照片」review-only 模組：
   - Apple Vision feature print 比較
   - 固定 Revision 1 以避免 SDK 升級時演算法默默漂移

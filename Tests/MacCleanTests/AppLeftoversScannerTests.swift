@@ -29,7 +29,8 @@ final class AppLeftoversScannerTests: XCTestCase {
 
         let items = AppLeftoversScanner.scan(
             roots: [root],
-            installedBundleIDs: ["com.installed.app"]
+            installedBundleIDs: ["com.installed.app"],
+            registeredAppExists: { _ in false }
         )
 
         XCTAssertEqual(items.map(\.name), ["com.deleted.app"],
@@ -41,7 +42,11 @@ final class AppLeftoversScannerTests: XCTestCase {
         // An empty installed set means enumeration failed; never treat the
         // whole Mac as orphaned.
         try makeEntry("com.deleted.app", bytes: 4096)
-        let items = AppLeftoversScanner.scan(roots: [root], installedBundleIDs: [])
+        let items = AppLeftoversScanner.scan(
+            roots: [root],
+            installedBundleIDs: [],
+            registeredAppExists: { _ in false }
+        )
         XCTAssertTrue(items.isEmpty)
     }
 
@@ -93,6 +98,39 @@ final class AppLeftoversScannerTests: XCTestCase {
                        "must not treat in-bundle helpers as installed apps")
     }
 
+    func testRegisteredRelocatedAppIsNotFlaggedAsLeftover() throws {
+        try makeEntry("com.relocated.app", bytes: 4096)
+        try makeEntry("com.deleted.app", bytes: 2048)
+
+        let items = AppLeftoversScanner.scan(
+            roots: [root],
+            installedBundleIDs: ["com.other.installed"],
+            registeredAppExists: { bundleID in
+                bundleID == "com.relocated.app"
+            }
+        )
+
+        XCTAssertEqual(
+            items.map(\.name),
+            ["com.deleted.app"],
+            "LaunchServices registration must protect a relocated app outside standard install roots"
+        )
+    }
+
+    func testRegisteredOwnerProtectsStorageSuffixEntry() throws {
+        try makeEntry("com.relocated.app.binarycookies", bytes: 4096)
+
+        let items = AppLeftoversScanner.scan(
+            roots: [root],
+            installedBundleIDs: ["com.other.installed"],
+            registeredAppExists: { bundleID in
+                bundleID == "com.relocated.app"
+            }
+        )
+
+        XCTAssertTrue(items.isEmpty)
+    }
+
     func testNestedInstalledAppIsNotFlaggedAsLeftover() throws {
         let appsRoot = FileManager.default.temporaryDirectory
             .appending(path: "LeftoversApps-\(UUID().uuidString)")
@@ -105,7 +143,11 @@ final class AppLeftoversScannerTests: XCTestCase {
         try makeEntry("com.deleted.app", bytes: 2048)
 
         let installed = AppLeftoversScanner.installedBundleIDs(in: [appsRoot])
-        let items = AppLeftoversScanner.scan(roots: [root], installedBundleIDs: installed)
+        let items = AppLeftoversScanner.scan(
+            roots: [root],
+            installedBundleIDs: installed,
+            registeredAppExists: { _ in false }
+        )
 
         XCTAssertEqual(items.map(\.name), ["com.deleted.app"],
                        "Photoshop cache must not be an orphan while the nested app is installed")

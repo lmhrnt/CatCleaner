@@ -78,10 +78,9 @@ public enum OrphanedAppFiles {
     }
 
     /// True if `a` and `b` are equal or one is a dotted-prefix ancestor of the
-    /// other (`com.x` ~ `com.x.app`). Crucially NOT a mere shared company
-    /// prefix: `com.adobe.photoshop` and `com.adobe.illustrator` do not share
-    /// lineage, so an Illustrator leftover is still an orphan while Photoshop
-    /// is installed.
+    /// other (`com.x` ~ `com.x.app`). Vendor-sibling protection is handled
+    /// separately by `vendorNamespace`; keeping the concepts separate avoids
+    /// confusing lineage with a weaker conservative keep-signal.
     static func sharesLineage(_ a: String, _ b: String) -> Bool {
         a == b || a.hasPrefix(b + ".") || b.hasPrefix(a + ".")
     }
@@ -95,6 +94,34 @@ public enum OrphanedAppFiles {
             .split(separator: ".", omittingEmptySubsequences: true)
         guard parts.count >= 2 else { return nil }
         return parts.prefix(2).joined(separator: ".")
+    }
+
+    /// Bundle IDs worth asking LaunchServices about for an orphan candidate.
+    ///
+    /// Safe storage roots can append suffixes such as `.savedState` or
+    /// `.binarycookies`. Strip those and helper suffixes, then walk dotted
+    /// ancestors while at least three reverse-DNS components remain. This lets
+    /// a relocated or externally mounted `com.vendor.app` protect data named
+    /// `com.vendor.app.helper.binarycookies`.
+    public static func ownerLookupBundleIDs(for entryName: String) -> [String] {
+        var id = entryName.lowercased()
+
+        for suffix in [".binarycookies", ".savedstate"] {
+            if id.hasSuffix(suffix), id.count > suffix.count {
+                id = String(id.dropLast(suffix.count))
+            }
+        }
+
+        id = strippingHelperSuffixes(id)
+        guard isBundleIDLike(id) else { return [] }
+
+        var output: [String] = []
+        var parts = id.split(separator: ".").map(String.init)
+        while parts.count >= 3 {
+            output.append(parts.joined(separator: "."))
+            parts.removeLast()
+        }
+        return output
     }
 
     /// A reverse-DNS-looking id: >= 3 non-empty dot components (tld.company.app),

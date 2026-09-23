@@ -92,4 +92,40 @@ final class OrphanedAppFilesTests: XCTestCase {
             installedBundleIDs: ["com.other.liveapp"]
         ))
     }
+
+    func testOwnerLookupStripsStorageAndHelperSuffixes() {
+        XCTAssertEqual(
+            OrphanedAppFiles.ownerLookupBundleIDs(
+                for: "com.vendor.app.helper.binarycookies"
+            ),
+            ["com.vendor.app"]
+        )
+
+        XCTAssertEqual(
+            OrphanedAppFiles.ownerLookupBundleIDs(
+                for: "com.vendor.app.savedState"
+            ),
+            ["com.vendor.app"]
+        )
+    }
+
+    func testOwnerLookupWalksDottedAncestorsButStopsAtReverseDNSAppDepth() {
+        XCTAssertEqual(
+            OrphanedAppFiles.ownerLookupBundleIDs(
+                for: "com.parallels.desktop.console.binarycookies"
+            ),
+            [
+                "com.parallels.desktop.console",
+                "com.parallels.desktop",
+            ]
+        )
+    }
+
+    func testOwnerLookupRejectsNonBundleNames() {
+        XCTAssertTrue(
+            OrphanedAppFiles.ownerLookupBundleIDs(
+                for: "catdesk-supervisor.launchd.err"
+            ).isEmpty
+        )
+    }
 }

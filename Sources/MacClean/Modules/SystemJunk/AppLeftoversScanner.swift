@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import MacCleanKit
 
 /// Finds leftover support files belonging to apps that are no longer installed.
@@ -35,9 +36,13 @@ public enum AppLeftoversScanner {
 
     public static func scan(
         roots: [URL]? = nil,
-        installedBundleIDs: Set<String>? = nil
+        installedBundleIDs: Set<String>? = nil,
+        registeredAppExists: ((String) -> Bool)? = nil
     ) -> [FileItem] {
         let installed = installedBundleIDs ?? Self.installedBundleIDs()
+        let launchServicesHasApp: (String) -> Bool = registeredAppExists ?? { bundleID in
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
+        }
         // No installed apps found at all → almost certainly an enumeration
         // failure, not an empty Mac. Refuse to flag everything as orphaned.
         guard !installed.isEmpty else { return [] }
@@ -55,8 +60,20 @@ public enum AppLeftoversScanner {
                 // The entry name is the candidate bundle id (e.g.
                 // Caches/com.acme.App, Saved Application State/com.acme.App.savedState).
                 let candidate = entry.lastPathComponent
-                guard OrphanedAppFiles.isOrphan(bundleID: candidate, installedBundleIDs: installed)
+                guard OrphanedAppFiles.isOrphan(
+                    bundleID: candidate,
+                    installedBundleIDs: installed
+                )
                 else { continue }
+
+                // Standard install-root enumeration can miss relocated apps,
+                // external-volume apps, and user-chosen app folders. Ask
+                // LaunchServices about plausible owner bundle IDs before
+                // treating the entry as an orphan. Any positive registration
+                // is a fail-closed keep signal.
+                let ownerIDs = OrphanedAppFiles.ownerLookupBundleIDs(for: candidate)
+                guard !ownerIDs.contains(where: launchServicesHasApp) else { continue }
+
                 guard seenURLs.insert(entry.standardizedFileURL).inserted else { continue }
 
                 let size = directorySize(at: entry)
