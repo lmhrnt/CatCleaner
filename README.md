@@ -106,8 +106,15 @@ swift build --target MacCleanKit
 完整 Xcode 安裝後可執行：
 
 ```bash
-swift test
+./scripts/build-preflight.sh --app
+./scripts/test.sh
 ./scripts/build-dmg.sh --app-only
+```
+
+BuhoCleaner 功能對照與目前 build gate 狀態見：
+
+```text
+docs/BUHOCLEANER_PARITY.md
 ```
 
 開發安裝腳本會使用：

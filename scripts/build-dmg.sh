@@ -17,6 +17,15 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "$REPO_ROOT"
+
+# Fail fast before a long SwiftUI compile. This does not modify xcode-select or
+# install anything; it only verifies that a full Xcode toolchain provides the
+# SwiftUI macro plugin required by MacClean/MacCleanMenu.
+"${SCRIPT_DIR}/build-preflight.sh" --app
+
 APP_NAME="CatCleaner"
 BUNDLE_ID="com.catcleaner.app"
 VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0')}"
