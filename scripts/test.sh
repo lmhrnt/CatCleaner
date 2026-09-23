@@ -9,6 +9,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "$REPO_ROOT"
 
 python3 "${SCRIPT_DIR}/check-process-pipe-order.py"
+export DEVELOPER_DIR="$("${SCRIPT_DIR}/resolve-xcode.sh")"
 "${SCRIPT_DIR}/build-preflight.sh" --tests
 
 exec swift test "$@"

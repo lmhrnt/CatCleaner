@@ -21,9 +21,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Fail fast before a long SwiftUI compile. This does not modify xcode-select or
-# install anything; it only verifies that a full Xcode toolchain provides the
-# SwiftUI macro plugin required by MacClean/MacCleanMenu.
+# Resolve a full Xcode only for this command without changing global
+# xcode-select, then fail fast before a long SwiftUI compile.
+export DEVELOPER_DIR="$("${SCRIPT_DIR}/resolve-xcode.sh")"
 "${SCRIPT_DIR}/build-preflight.sh" --app
 
 APP_NAME="CatCleaner"

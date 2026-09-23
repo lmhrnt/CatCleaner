@@ -147,6 +147,8 @@ swift build --target MacCleanKit
 ./scripts/build-dmg.sh --app-only
 ```
 
+建置/測試入口會自動尋找目前 `DEVELOPER_DIR`、`/Applications/Xcode.app`、`/Applications/Xcode-beta.app` 或 `~/Applications/Xcode.app`，並只對該命令設定 Xcode developer directory；**不會修改全機 `xcode-select`**。只有 Command Line Tools 時會在真正編譯前以明確訊息 fail-closed，核心仍可用 `swift build --target MacCleanKit`。
+
 BuhoCleaner 功能對照與目前 build gate 狀態見：
 
 ```text

@@ -10,11 +10,16 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 MODE="${1:---app}"
+if [[ "$MODE" == "--test" ]]; then
+  MODE="--tests"
+fi
 case "$MODE" in
   --app|--tests|--core-only) ;;
   *)
-    echo "Usage: $0 [--app|--tests|--core-only]" >&2
+    echo "Usage: $0 [--app|--test|--tests|--core-only]" >&2
     exit 64
     ;;
 esac
@@ -32,47 +37,13 @@ if [[ "$MODE" == "--core-only" ]]; then
   exit 0
 fi
 
-is_full_xcode_dir() {
-  local dir="$1"
-  [[ -n "$dir" ]] || return 1
-  [[ "$dir" == *.app/Contents/Developer ]] || return 1
-  [[ -x "$dir/usr/bin/xcodebuild" ]] || return 1
-  [[ -d "$dir/Platforms/MacOSX.platform" ]] || return 1
-}
-
-find_full_xcode() {
-  local candidate
-  for candidate in     "/Applications/Xcode.app/Contents/Developer"     "/Applications/Xcode-beta.app/Contents/Developer"     "$HOME/Applications/Xcode.app/Contents/Developer"
-  do
-    if is_full_xcode_dir "$candidate"; then
-      printf '%s
-' "$candidate"
-      return 0
-    fi
-  done
-  return 1
-}
-
-if ! is_full_xcode_dir "$SELECTED_DEVELOPER_DIR"; then
-  FOUND_XCODE="$(find_full_xcode || true)"
-  echo "ERROR: CatCleaner SwiftUI app builds require full Xcode." >&2
-  echo "Current developer directory: ${SELECTED_DEVELOPER_DIR:-<none>}" >&2
-  if [[ -n "$FOUND_XCODE" ]]; then
-    echo "Full Xcode was found at: $FOUND_XCODE" >&2
-    echo "Re-run without changing global xcode-select:" >&2
-    echo "  DEVELOPER_DIR=\"$FOUND_XCODE\" $0 $MODE" >&2
-  else
-    echo "No full Xcode installation was found in /Applications or ~/Applications." >&2
-    echo "Apple Command Line Tools alone do not ship the SwiftUIMacros plugin used by SwiftUI." >&2
-    if [[ "$MODE" == "--tests" ]]; then
-      echo "The test suite also requires XCTest from full Xcode." >&2
-    fi
+if ! RESOLVED_DEVELOPER_DIR="$("$SCRIPT_DIR/resolve-xcode.sh")"; then
+  if [[ "$MODE" == "--tests" ]]; then
+    echo "The CatCleaner test suite also requires XCTest from full Xcode." >&2
   fi
-  echo "Core-only work remains available:" >&2
-  echo "  $0 --core-only" >&2
-  echo "  swift build --target MacCleanKit" >&2
   exit 78
 fi
+SELECTED_DEVELOPER_DIR="$RESOLVED_DEVELOPER_DIR"
 
 SWIFT_UI_MACRO="$SELECTED_DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib"
 if [[ ! -f "$SWIFT_UI_MACRO" ]]; then

@@ -59,13 +59,16 @@ if [[ "$MODE" != "quiet" ]]; then
 fi
 
 # 1. Full Xcode is required for SwiftUI macros, XCTest, and final app build.
-developer_dir="${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"
-if [[ "$developer_dir" == *.app/Contents/Developer ]] &&
-   [[ -x "$developer_dir/usr/bin/xcodebuild" ]] &&
-   [[ -d "$developer_dir/Platforms/MacOSX.platform" ]]; then
+# Resolve it locally without changing global xcode-select.
+set +e
+developer_dir="$(${SCRIPT_DIR}/resolve-xcode.sh 2>/dev/null)"
+xcode_rc=$?
+set -e
+if [[ $xcode_rc -eq 0 ]] && [[ -n "$developer_dir" ]]; then
   pass "full_xcode" "$developer_dir"
 else
-  block "full_xcode" "full Xcode is required; current=${developer_dir:-<none>}"
+  current_dir="${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"
+  block "full_xcode" "full Xcode is required; current=${current_dir:-<none>}"
 fi
 
 # 2. The product needs a CatCleaner-owned publication remote.
