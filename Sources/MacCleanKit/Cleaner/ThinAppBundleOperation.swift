@@ -1,5 +1,4 @@
 import Foundation
-import MacCleanKit
 import OSLog
 
 /// Walks an entire `.app` bundle and thins every fat Mach-O inside it via

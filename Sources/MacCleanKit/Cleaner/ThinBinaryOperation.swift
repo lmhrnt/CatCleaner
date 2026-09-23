@@ -1,5 +1,4 @@
 import Foundation
-import MacCleanKit
 import OSLog
 
 /// Strips redundant architecture slices from a Mach-O universal binary.
