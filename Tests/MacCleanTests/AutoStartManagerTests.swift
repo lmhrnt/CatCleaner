@@ -65,6 +65,35 @@ final class AutoStartManagerTests: XCTestCase {
         )
     }
 
+    func testDisabledServiceParserUsesLaunchctlState() {
+        let output = """
+        disabled services = {
+            "com.example.enabled" => enabled
+            "com.example.disabled" => disabled
+            "com.example.other" => disabled
+        }
+        """
+
+        XCTAssertEqual(
+            AutoStartManager.parseDisabledServiceLabels(output),
+            ["com.example.disabled", "com.example.other"]
+        )
+    }
+
+    func testLaunchAgentWithoutLabelCannotToggle() {
+        let item = AutoStartItem(
+            name: "Label-less Agent",
+            bundleIdentifier: nil,
+            programPath: "/tmp/example",
+            configFilePath: "/tmp/com.example.agent.plist",
+            sourceType: .launchAgent,
+            isSystem: false,
+            isEnabled: true
+        )
+
+        XCTAssertFalse(item.canToggle)
+    }
+
     func testRememberedDisabledLoginItemRemainsVisibleAndOff() throws {
         let suite = "AutoStartManagerTests-(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

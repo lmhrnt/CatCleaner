@@ -27,7 +27,7 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 - Space Lens 磁碟分析強化：
   - 掃描進度改為不定進度 + 實際已枚舉項目數，不再顯示固定 50% 的假百分比
   - 可切換「個人資料夾」與目前已掛載磁碟/磁碟映像
-  - 掃描 Macintosh HD 時明確剪掉 `/Volumes`，避免把外接磁碟、DMG 或另一個 Macintosh HD mount 重複計入
+  - 掃描 Macintosh HD 時明確剪掉 `/Volumes` 與 `/System/Volumes`，避免把外接磁碟、DMG、APFS Data/helper volume 或另一個 Macintosh HD mount 重複計入
   - 其他巢狀掛載點以 filesystem device boundary 阻擋；選定外接磁碟後則只掃該 volume 自身
   - 切換 volume 或取消掃描會用 generation token 丟棄舊掃描回傳，避免舊結果覆寫新畫面
 - 啟動項管理強化：
@@ -36,6 +36,8 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - 沒有可驗證 path 的 login item 只顯示、鎖定，不猜測修改
   - login-item 開關以精確 path 操作，參數透過 `osascript run(argv)` 傳入，避免字串插值/路徑跳脫問題
   - 由 CatCleaner 關閉的 login item 會保留為 off 狀態，可再次開啟；若使用者在系統設定外部重新啟用，remembered 狀態會自動清除
+  - user LaunchAgent 狀態改以 `launchctl print-disabled` 為真實來源；`enable/disable` 持久化狀態，`bootstrap/bootout` 讓目前登入 session 立即生效
+  - LaunchAgent 只允許修改 `~/Library/LaunchAgents` 直屬 regular `.plist`，缺 `Label`、巢狀路徑、symlink 與 system LaunchAgent/Daemon 都維持只讀
 - 卸載器新增「已移除 App 殘留」獨立頁：
   - 只掃描 Caches、Logs、HTTPStorages、Saved Application State、WebKit 等安全殘留位置
   - 只接受 reverse-DNS bundle ID，並保護 Apple / shared framework / SwiftPM 基礎設施

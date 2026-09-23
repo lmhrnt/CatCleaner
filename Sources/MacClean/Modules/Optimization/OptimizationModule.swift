@@ -55,8 +55,12 @@ public struct AutoStartItem: Identifiable, Sendable {
         switch sourceType {
         case .loginItem:
             return hasAppPath
-        case .launchAgent, .launchDaemon:
+        case .launchAgent:
             return !isSystem
+                && hasConfigFile
+                && !(bundleIdentifier?.isEmpty ?? true)
+        case .launchDaemon:
+            return false
         }
     }
 }
@@ -147,14 +151,38 @@ public final class AutoStartManager: @unchecked Sendable {
     }
 
     public func getLaunchAgents() -> [AutoStartItem] {
+        let userDisabled = Self.disabledServiceLabels(
+            domainTarget: Self.currentGUIDomainTarget
+        )
+        let systemDisabled = Self.disabledServiceLabels(
+            domainTarget: "system"
+        )
+
         var agents: [AutoStartItem] = []
-        agents.append(contentsOf: scanPlistDir(MCConstants.userLaunchAgents, type: .launchAgent, isSystem: false))
-        agents.append(contentsOf: scanPlistDir(MCConstants.systemLaunchAgents, type: .launchAgent, isSystem: true))
+        agents.append(contentsOf: scanPlistDir(
+            MCConstants.userLaunchAgents,
+            type: .launchAgent,
+            isSystem: false,
+            disabledServiceLabels: userDisabled
+        ))
+        agents.append(contentsOf: scanPlistDir(
+            MCConstants.systemLaunchAgents,
+            type: .launchAgent,
+            isSystem: true,
+            disabledServiceLabels: systemDisabled
+        ))
         return agents
     }
 
     public func getLaunchDaemons() -> [AutoStartItem] {
-        scanPlistDir(MCConstants.systemLaunchDaemons, type: .launchDaemon, isSystem: true)
+        scanPlistDir(
+            MCConstants.systemLaunchDaemons,
+            type: .launchDaemon,
+            isSystem: true,
+            disabledServiceLabels: Self.disabledServiceLabels(
+                domainTarget: "system"
+            )
+        )
     }
 
     // MARK: Toggle
@@ -163,7 +191,7 @@ public final class AutoStartManager: @unchecked Sendable {
         case systemItemReadOnly
         case unreadablePlist
         case loginItemPathUnavailable
-        case sfltoolFailed(String)
+        case commandFailed(String)
 
         public var errorDescription: String? {
             switch self {
@@ -185,7 +213,7 @@ public final class AutoStartManager: @unchecked Sendable {
                     "This login item has no verifiable app path, so CatCleaner will not modify it directly.",
                     "У этого объекта входа нет проверяемого пути к приложению, поэтому CatCleaner не будет изменять его напрямую."
                 )
-            case .sfltoolFailed(let message):
+            case .commandFailed(let message):
                 let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty
                     ? L10n.tr(
@@ -317,17 +345,34 @@ public final class AutoStartManager: @unchecked Sendable {
 
     // MARK: - Launch Agents / Daemons Acquisition
 
-    private func scanPlistDir(_ dir: URL, type: AutoStartItem.SourceType, isSystem: Bool) -> [AutoStartItem] {
-        guard let contents = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+    private func scanPlistDir(
+        _ dir: URL,
+        type: AutoStartItem.SourceType,
+        isSystem: Bool,
+        disabledServiceLabels: Set<String>? = nil
+    ) -> [AutoStartItem] {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: nil
+        ) else {
             return []
         }
+
         var items: [AutoStartItem] = []
         for url in contents where url.pathExtension == "plist" {
             guard let data = try? Data(contentsOf: url),
-                  let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+                  let plist = try? PropertyListSerialization.propertyList(
+                    from: data,
+                    format: nil
+                  ) as? [String: Any]
             else { continue }
 
-            let label = plist["Label"] as? String ?? url.deletingPathExtension().lastPathComponent
+            let launchdLabel = (plist["Label"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let displayLabel = (launchdLabel?.isEmpty == false)
+                ? launchdLabel!
+                : url.deletingPathExtension().lastPathComponent
+
             let program: String?
             if let prog = plist["Program"] as? String {
                 program = prog
@@ -336,19 +381,30 @@ public final class AutoStartManager: @unchecked Sendable {
             } else {
                 program = nil
             }
-            let disabled = plist["Disabled"] as? Bool ?? false
 
-            // Resolve a human-readable name
+            let disabled: Bool
+            if let disabledServiceLabels,
+               let launchdLabel,
+               !launchdLabel.isEmpty
+            {
+                disabled = disabledServiceLabels.contains(launchdLabel)
+            } else {
+                // Fallback only when launchctl state cannot be queried.
+                disabled = plist["Disabled"] as? Bool ?? false
+            }
+
             let name: String
-            if let progPath = program, let displayName = resolveAppNameFromPath(progPath) {
+            if let progPath = program,
+               let displayName = resolveAppNameFromPath(progPath)
+            {
                 name = displayName
             } else {
-                name = label
+                name = displayLabel
             }
 
             items.append(AutoStartItem(
                 name: name,
-                bundleIdentifier: label,
+                bundleIdentifier: launchdLabel,
                 programPath: program,
                 configFilePath: url.path,
                 sourceType: type,
@@ -415,7 +471,7 @@ public final class AutoStartManager: @unchecked Sendable {
             arguments: ["-e", script, "--", path]
         )
         guard result.exitCode == 0 else {
-            throw ToggleError.sfltoolFailed(result.output)
+            throw ToggleError.commandFailed(result.output)
         }
     }
 
@@ -424,11 +480,72 @@ public final class AutoStartManager: @unchecked Sendable {
         let output: String
     }
 
+    static var currentGUIDomainTarget: String {
+        "gui/\(getuid())"
+    }
+
+    static func parseDisabledServiceLabels(_ output: String) -> Set<String> {
+        var labels: Set<String> = []
+
+        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
+            let text = String(line)
+            guard text.contains("=> disabled"),
+                  let firstQuote = text.firstIndex(of: "\"")
+            else {
+                continue
+            }
+
+            let afterFirst = text.index(after: firstQuote)
+            guard let secondQuote = text[afterFirst...].firstIndex(of: "\"") else {
+                continue
+            }
+
+            let label = String(text[afterFirst..<secondQuote])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !label.isEmpty {
+                labels.insert(label)
+            }
+        }
+
+        return labels
+    }
+
+    private static func disabledServiceLabels(
+        domainTarget: String
+    ) -> Set<String>? {
+        let result = runLaunchctl(
+            arguments: ["print-disabled", domainTarget]
+        )
+        guard result.exitCode == 0 else { return nil }
+        return parseDisabledServiceLabels(result.output)
+    }
+
+    private static func isServiceLoaded(_ serviceTarget: String) -> Bool {
+        runLaunchctl(arguments: ["print", serviceTarget]).exitCode == 0
+    }
+
     private static func runOsaScript(arguments: [String]) -> ScriptResult {
+        runCommand(
+            executable: "/usr/bin/osascript",
+            arguments: arguments
+        )
+    }
+
+    private static func runLaunchctl(arguments: [String]) -> ScriptResult {
+        runCommand(
+            executable: "/bin/launchctl",
+            arguments: arguments
+        )
+    }
+
+    private static func runCommand(
+        executable: String,
+        arguments: [String]
+    ) -> ScriptResult {
         let process = Process()
         let pipe = Pipe()
 
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
         process.standardOutput = pipe
         process.standardError = pipe
@@ -436,7 +553,7 @@ public final class AutoStartManager: @unchecked Sendable {
         do {
             try process.run()
             // Drain output while the child runs. Waiting first can deadlock if
-            // an automation error or diagnostic exceeds the pipe buffer.
+            // diagnostics exceed the pipe buffer.
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             return ScriptResult(
@@ -465,27 +582,87 @@ public final class AutoStartManager: @unchecked Sendable {
         }
 
         let data = try Data(contentsOf: configURL)
-        guard var plist = try PropertyListSerialization.propertyList(
+        guard let plist = try PropertyListSerialization.propertyList(
             from: data,
             format: nil
-        ) as? [String: Any] else {
+        ) as? [String: Any],
+        let rawLabel = plist["Label"] as? String
+        else {
             throw ToggleError.unreadablePlist
         }
 
-        // Recheck immediately before mutation so a path that changed between
-        // read and write fails closed rather than following a replacement
-        // symlink outside ~/Library/LaunchAgents.
+        let label = rawLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !label.isEmpty else {
+            throw ToggleError.unreadablePlist
+        }
+
+        // The UI snapshot must still refer to the same launchd identity.
+        if let snapshotLabel = item.bundleIdentifier,
+           !snapshotLabel.isEmpty,
+           snapshotLabel != label
+        {
+            throw ToggleError.unreadablePlist
+        }
+
+        // Recheck immediately before invoking launchctl so a path that changed
+        // between read and action fails closed rather than following a
+        // replacement symlink outside ~/Library/LaunchAgents.
         guard Self.isSafeUserLaunchAgentConfig(configURL) else {
             throw ToggleError.unreadablePlist
         }
 
-        plist["Disabled"] = !enabled
-        let newData = try PropertyListSerialization.data(
-            fromPropertyList: plist,
-            format: .xml,
-            options: 0
-        )
-        try newData.write(to: configURL)
+        let domain = Self.currentGUIDomainTarget
+        let serviceTarget = "\(domain)/\(label)"
+        let wasLoaded = Self.isServiceLoaded(serviceTarget)
+
+        if enabled {
+            let enableResult = Self.runLaunchctl(
+                arguments: ["enable", serviceTarget]
+            )
+            guard enableResult.exitCode == 0 else {
+                throw ToggleError.commandFailed(enableResult.output)
+            }
+
+            if !wasLoaded {
+                let bootstrapResult = Self.runLaunchctl(
+                    arguments: ["bootstrap", domain, configURL.path]
+                )
+                if bootstrapResult.exitCode != 0
+                    && !Self.isServiceLoaded(serviceTarget)
+                {
+                    // Restore the previous persistent disabled state when the
+                    // service definition cannot be loaded.
+                    _ = Self.runLaunchctl(
+                        arguments: ["disable", serviceTarget]
+                    )
+                    throw ToggleError.commandFailed(bootstrapResult.output)
+                }
+            }
+        } else {
+            let disableResult = Self.runLaunchctl(
+                arguments: ["disable", serviceTarget]
+            )
+            guard disableResult.exitCode == 0 else {
+                throw ToggleError.commandFailed(disableResult.output)
+            }
+
+            if wasLoaded {
+                let bootoutResult = Self.runLaunchctl(
+                    arguments: ["bootout", domain, configURL.path]
+                )
+                if bootoutResult.exitCode != 0
+                    && Self.isServiceLoaded(serviceTarget)
+                {
+                    // The requested stop did not take effect. Restore the
+                    // previous persistent enabled state instead of leaving a
+                    // half-applied UI result.
+                    _ = Self.runLaunchctl(
+                        arguments: ["enable", serviceTarget]
+                    )
+                    throw ToggleError.commandFailed(bootoutResult.output)
+                }
+            }
+        }
     }
 
     static func isSafeUserLaunchAgentConfig(
