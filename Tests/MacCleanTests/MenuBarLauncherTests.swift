@@ -50,9 +50,9 @@ final class MenuBarLauncherTests: XCTestCase {
     func testBundleIdentifierIsTheConstant() {
         // The Service Management identifier must equal the constant the
         // build script writes into MacCleanMenu.app's Info.plist
-        // (`com.macclean.menu`). If these ever diverge, register() fails
+        // (`com.catcleaner.menu`). If these ever diverge, register() fails
         // silently with `.notFound`. Catch the drift here.
-        XCTAssertEqual(MCConstants.menuBundleIdentifier, "com.macclean.menu")
+        XCTAssertEqual(MCConstants.menuBundleIdentifier, "com.catcleaner.menu")
     }
 
     // Regression coverage for issue #58 — "Crash On macOS 26.5.1".

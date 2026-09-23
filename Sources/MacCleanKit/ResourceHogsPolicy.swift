@@ -25,7 +25,7 @@ public struct ResourceHogSnapshot: Equatable, Sendable {
 }
 
 /// A ranked row ready for the Resource Hogs UI, including whether Quit is
-/// allowed (never for Mac Sai itself or essential shell processes).
+/// allowed (never for CatCleaner itself or essential shell processes).
 public struct ResourceHogRow: Equatable, Sendable, Identifiable {
     public var id: Int32 { snapshot.pid }
     public let snapshot: ResourceHogSnapshot

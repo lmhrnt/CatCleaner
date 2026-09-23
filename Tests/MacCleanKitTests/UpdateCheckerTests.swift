@@ -33,11 +33,11 @@ final class UpdateCheckerTests: XCTestCase {
 
     func testParseValidPayload() throws {
         let json = """
-        {"tag_name": "v1.10.0", "html_url": "https://github.com/iliyami/MacSai/releases/tag/v1.10.0", "name": "1.10.0"}
+        {"tag_name": "v1.10.0", "html_url": "https://example.com/catcleaner/releases/v1.10.0", "name": "1.10.0"}
         """
         let parsed = try XCTUnwrap(UpdateChecker.parseLatestRelease(Data(json.utf8)))
         XCTAssertEqual(parsed.version, "1.10.0")
-        XCTAssertEqual(parsed.url.absoluteString, "https://github.com/iliyami/MacSai/releases/tag/v1.10.0")
+        XCTAssertEqual(parsed.url.absoluteString, "https://example.com/catcleaner/releases/v1.10.0")
     }
 
     func testParseRejectsGarbage() {
@@ -56,13 +56,13 @@ final class UpdateCheckerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         XCTAssertTrue(UpdateChecker.isHomebrewInstall(caskroomPaths: [tmp.path]))
-        XCTAssertFalse(UpdateChecker.isHomebrewInstall(caskroomPaths: ["/nonexistent/caskroom/mac-sai"]))
+        XCTAssertFalse(UpdateChecker.isHomebrewInstall(caskroomPaths: ["/nonexistent/caskroom/catcleaner"]))
     }
 
     // MARK: - Align the updater with what Homebrew can actually deliver
 
     func testParseCaskVersion() {
-        let json = #"{"token":"mac-sai","version":"1.16.0","homepage":"https://github.com/iliyami/MacSai"}"#
+        let json = #"{"token":"catcleaner","version":"1.16.0","homepage":"https://example.com/catcleaner"}"#
         XCTAssertEqual(UpdateChecker.parseCaskVersion(Data(json.utf8)), "1.16.0")
     }
 
@@ -73,12 +73,11 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertNil(UpdateChecker.parseCaskVersion(Data(#"{"version":":latest"}"#.utf8)))
     }
 
-    func testHomebrewInstallsCheckTheCaskAPINotGitHub() {
-        // A Homebrew install must compare against the official cask version
-        // (what `brew upgrade` can deliver), which lags GitHub releases while
-        // autobump catches up, so the popup doesn't tell brew users to run a
-        // command that no-ops.
-        XCTAssertEqual(UpdateChecker.updateSourceURL(isHomebrew: true), MCConstants.homebrewCaskAPI)
-        XCTAssertEqual(UpdateChecker.updateSourceURL(isHomebrew: false), MCConstants.latestReleaseAPI)
+    func testDownstreamUpdateSourcesAreFailClosedUntilConfigured() {
+        XCTAssertFalse(MCConstants.updateChecksEnabled)
+        XCTAssertNil(UpdateChecker.updateSourceURL(isHomebrew: true))
+        XCTAssertNil(UpdateChecker.updateSourceURL(isHomebrew: false))
+        XCTAssertNil(MCConstants.homebrewCaskAPI)
+        XCTAssertNil(MCConstants.latestReleaseAPI)
     }
 }

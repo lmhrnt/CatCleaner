@@ -56,12 +56,12 @@ public enum UpdateChecker {
 
     /// Caskroom locations for Apple Silicon and Intel Homebrew prefixes.
     public static let defaultCaskroomPaths = [
-        "/opt/homebrew/Caskroom/mac-sai",
-        "/usr/local/Caskroom/mac-sai",
+        "/opt/homebrew/Caskroom/catcleaner",
+        "/usr/local/Caskroom/catcleaner",
     ]
 
     /// True when the app was installed via the Homebrew cask. The Settings
-    /// UI then shows `brew upgrade --cask mac-sai` instead of a DMG link,
+    /// UI will show `brew upgrade --cask catcleaner` instead of a DMG link,
     /// so brew's receipt and the installed app never drift.
     public static func isHomebrewInstall(
         caskroomPaths: [String] = defaultCaskroomPaths,
@@ -70,12 +70,13 @@ public enum UpdateChecker {
         caskroomPaths.contains { fileManager.fileExists(atPath: $0) }
     }
 
-    /// Where to look for the latest version, per install source. Homebrew
-    /// installs check the official cask API (what `brew upgrade` can deliver);
-    /// direct/DMG installs check the GitHub release (they get the DMG directly,
-    /// with no autobump lag).
-    public static func updateSourceURL(isHomebrew: Bool) -> URL {
-        isHomebrew ? MCConstants.homebrewCaskAPI : MCConstants.latestReleaseAPI
+    /// Where to look for the latest version, per install source. This remains
+    /// nil while CatCleaner has no owned release feed. A future Homebrew build
+    /// will use the CatCleaner cask API; direct/DMG installs will use a
+    /// CatCleaner-owned release endpoint.
+    public static func updateSourceURL(isHomebrew: Bool) -> URL? {
+        guard MCConstants.updateChecksEnabled else { return nil }
+        return isHomebrew ? MCConstants.homebrewCaskAPI : MCConstants.latestReleaseAPI
     }
 
     /// Parse the `version` from Homebrew's cask JSON (formulae.brew.sh).
@@ -97,7 +98,16 @@ public enum UpdateChecker {
         session: URLSession = .shared,
         isHomebrew: Bool = isHomebrewInstall()
     ) async -> CheckResult {
-        let sourceURL = updateSourceURL(isHomebrew: isHomebrew)
+        guard MCConstants.updateChecksEnabled,
+              let sourceURL = updateSourceURL(isHomebrew: isHomebrew)
+        else {
+            return .failed(message: L10n.tr(
+                "CatCleaner 更新通道尚未配置。",
+                "CatCleaner update channel is not configured yet.",
+                "Канал обновлений CatCleaner пока не настроен."
+            ))
+        }
+
         var request = URLRequest(url: sourceURL, timeoutInterval: 10)
         request.setValue(
             isHomebrew ? "application/json" : "application/vnd.github+json",
@@ -113,7 +123,14 @@ public enum UpdateChecker {
                 version = caskVersion
                 // Brew installs act via `brew upgrade`, not a download link;
                 // the releases page is a sensible fallback URL.
-                url = MCConstants.releasesURL
+                guard let releasesURL = MCConstants.releasesURL else {
+                    return .failed(message: L10n.tr(
+                        "CatCleaner Homebrew 更新通道尚未配置。",
+                        "CatCleaner Homebrew update channel is not configured yet.",
+                        "Канал обновлений CatCleaner через Homebrew пока не настроен."
+                    ))
+                }
+                url = releasesURL
             } else {
                 guard let parsed = parseLatestRelease(data) else {
                     return .failed(message: L10n.tr("GitHub 返回了无法识别的响应。", "Unexpected response from GitHub.", "Неожиданный ответ от GitHub."))

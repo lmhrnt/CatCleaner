@@ -17,6 +17,13 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - 磁碟
   - 檔案 / 資料夾
   - 效能 / 網路 / 音訊 / 影片等
+- 新增「相似照片」review-only 模組：
+  - Apple Vision feature print 比較
+  - 固定 Revision 1 以避免 SDK 升級時演算法默默漂移
+  - metadata 預篩選 + 每張最多 48 個候選 + 全域最多 50,000 對
+  - complete-link 保守分群，避免 A≈B、B≈C 就誤把 A/B/C 全部合成一群
+  - 嚴格／平衡／寬鬆三個人工審查門檻
+  - 不預選、不刪除、不丟垃圾桶、不 APFS consolidate
 - 新增「開發者清理」scan-only 模組：
   - CatDesk build/recovery/snapshots
   - Codex cache/sessions

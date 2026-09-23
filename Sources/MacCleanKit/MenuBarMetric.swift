@@ -1,6 +1,6 @@
 import Foundation
 
-/// The compact value shown next to the Mac Sai menu-bar icon.
+/// The compact value shown next to the CatCleaner menu-bar icon.
 ///
 /// Raw values are persisted in the shared defaults suite, so they must remain
 /// stable across releases.

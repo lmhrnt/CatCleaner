@@ -21,7 +21,7 @@ public struct BundleHostInfo: Sendable, Equatable {
         self.hostArch = hostArch
     }
 
-    /// The arch this build of Mac Sai is running on. Compile-time check —
+    /// The arch this build of CatCleaner is running on. Compile-time check —
     /// Rosetta-translated x86_64 builds would report x86_64 here, which is
     /// the right answer for "what code is loaded right now."
     public static var current: BundleHostInfo {

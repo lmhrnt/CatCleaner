@@ -70,9 +70,9 @@ final class RemainingSystemJunkE2ETests: XCTestCase {
         // invisible. Cleanup by exact path on tearDown.
         let id = UUID().uuidString
         let corrupt = MCConstants.userPreferences
-            .appending(path: "com.macclean.e2e-bad-\(id).plist")
+            .appending(path: "com.catcleaner.e2e-bad-\(id).plist")
         let valid = MCConstants.userPreferences
-            .appending(path: "com.macclean.e2e-good-\(id).plist")
+            .appending(path: "com.catcleaner.e2e-good-\(id).plist")
         stragglerFiles.append(corrupt)
         stragglerFiles.append(valid)
 

@@ -202,7 +202,7 @@ struct ContentView: View {
         case .largeOldFiles:
             LargeOldFilesView()
         case .duplicates:
-            DuplicatesView()
+            DuplicatesHubView()
         case .shredder:
             ShredderView()
         case .developerCleanup:

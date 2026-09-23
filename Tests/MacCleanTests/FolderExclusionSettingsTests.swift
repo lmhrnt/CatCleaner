@@ -8,7 +8,7 @@ final class FolderExclusionSettingsTests: XCTestCase {
         XCTAssertTrue(src.contains("FolderExclusionPreferences"))
         XCTAssertTrue(
             src.contains("cannot be deleted") || src.contains("无法被"),
-            "Copy must honestly say Mac Sai will not delete excluded folders"
+            "Copy must honestly say CatCleaner will not delete excluded folders"
         )
         XCTAssertFalse(
             src.contains("revoke"),

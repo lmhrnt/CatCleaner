@@ -56,7 +56,7 @@ final class ResourceHogsPolicyTests: XCTestCase {
         let rows = ResourceHogsPolicy.rows(from: [
             hog(pid: 1, name: "Chrome", cpu: 40, memory: 1, bundleID: "com.google.Chrome"),
             hog(pid: 2, name: "Finder", cpu: 5, memory: 1, bundleID: "com.apple.finder"),
-            hog(pid: 3, name: "Mac Sai", cpu: 2, memory: 1, bundleID: MCConstants.bundleIdentifier),
+            hog(pid: 3, name: "CatCleaner", cpu: 2, memory: 1, bundleID: MCConstants.bundleIdentifier),
         ], sortBy: .cpu, limit: 10)
 
         XCTAssertEqual(rows.map(\.canQuit), [true, false, false])

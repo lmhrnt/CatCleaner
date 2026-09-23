@@ -1,6 +1,6 @@
 import Foundation
 
-/// Persisted list of folders the user asked Mac Sai never to scan or delete
+/// Persisted list of folders the user asked CatCleaner never to scan or delete
 /// (issue #141). Mirrors `LanguagePreferences`: `UserDefaults` string array.
 /// Tests pass an injected suite / home path so they never touch the real prefs.
 public enum FolderExclusionPreferences {

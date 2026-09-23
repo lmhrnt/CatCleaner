@@ -6,7 +6,7 @@ import MacCleanKit
 /// Registers / unregisters the menu bar widget as a login item via
 /// `SMAppService.loginItem(identifier:)`. The identifier is the bundle id
 /// of the helper app embedded at
-/// `Mac Sai.app/Contents/Library/LoginItems/MacCleanMenu.app/`. macOS
+/// `CatCleaner.app/Contents/Library/LoginItems/MacCleanMenu.app/`. macOS
 /// looks at that exact path to find the helper, so the bundling in
 /// `scripts/build-dmg.sh` must match.
 ///

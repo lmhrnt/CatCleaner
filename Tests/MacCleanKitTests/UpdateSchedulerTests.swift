@@ -53,12 +53,12 @@ final class UpdateSchedulerTests: XCTestCase {
         let a = UpdateScheduler.updateAction(
             isHomebrew: true,
             releaseURL: URL(string: "https://example.com")!,
-            brewCommand: "brew upgrade --cask mac-sai")
-        XCTAssertEqual(a, .brewCommand("brew upgrade --cask mac-sai"))
+            brewCommand: "brew upgrade --cask catcleaner")
+        XCTAssertEqual(a, .brewCommand("brew upgrade --cask catcleaner"))
     }
 
     func testActionForDMGIsOpenRelease() {
-        let url = URL(string: "https://github.com/iliyami/MacSai/releases/tag/v1.13.0")!
+        let url = URL(string: "https://example.com/catcleaner/releases/v1.13.0")!
         let a = UpdateScheduler.updateAction(
             isHomebrew: false, releaseURL: url, brewCommand: "ignored")
         XCTAssertEqual(a, .openRelease(url))

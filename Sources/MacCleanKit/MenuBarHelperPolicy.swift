@@ -1,6 +1,6 @@
 import Foundation
 
-/// Snapshot of one `com.macclean.menu` process for duplicate arbitration.
+/// Snapshot of one `com.catcleaner.menu` process for duplicate arbitration.
 public struct MenuBarInstance: Equatable, Sendable {
     public let pid: Int32
     public let launchDate: Date?
@@ -41,7 +41,7 @@ public enum MenuBarInstancePolicy {
 
 /// Shared-suite flag so an explicit **Quit Monitor** is not undone by the
 /// main app's terminate observer. Injected `UserDefaults` keeps tests off
-/// the real `com.macclean.shared` plist.
+/// the real `com.catcleaner.shared` plist.
 public enum MenuBarKeepAlive {
     public static let userQuitKey = "menuBarWidgetUserQuit"
     public static let preferenceKey = "showMenuBarWidget"

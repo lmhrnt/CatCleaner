@@ -49,7 +49,7 @@ final class ModuleE2ETests: XCTestCase {
     /// leftover via the 10-level matcher.
     func testUninstaller_findsAppAndAssociatedFiles() async throws {
         let id = UUID().uuidString
-        let bundleID = "com.macclean.e2e.acmechat\(id.prefix(8).lowercased())"
+        let bundleID = "com.catcleaner.e2e.acmechat\(id.prefix(8).lowercased())"
         let appName = "AcmeChatE2E\(id.prefix(8))"
 
         // Synthetic .app under ~/Applications (user-writable).
@@ -113,11 +113,11 @@ final class ModuleE2ETests: XCTestCase {
         let id = UUID().uuidString
         // "genio" is in MalwareSignatures.knownPatterns.
         let agent = MCConstants.userLaunchAgents
-            .appending(path: "com.macclean.e2e.genio-\(id).plist")
+            .appending(path: "com.catcleaner.e2e.genio-\(id).plist")
         stragglerFiles.append(agent)
 
         let plist: [String: Any] = [
-            "Label": "com.macclean.e2e.genio-\(id)",
+            "Label": "com.catcleaner.e2e.genio-\(id)",
             "ProgramArguments": ["/usr/bin/true"],
             "RunAtLoad": true,
         ]

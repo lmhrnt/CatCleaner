@@ -81,20 +81,41 @@ struct SettingsPageView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                updateControl
-            }
-            if case .available(let version, let url) = updateState {
-                updateAvailableRow(version: version, url: url)
-            }
-            Toggle(L10n.tr("自动检查更新", "Automatically check for updates", "Автоматически проверять обновления"),
-                   isOn: $automaticUpdateChecks)
-            if lastUpdateCheckTimestamp > 0 {
-                Text(L10n.tr(
-                    "上次检查：\(lastCheckedDescription)",
-                    "Last checked: \(lastCheckedDescription)",
-                    "Последняя проверка: \(lastCheckedDescription)"))
+                if MCConstants.updateChecksEnabled {
+                    updateControl
+                } else {
+                    Label(
+                        L10n.tr(
+                            "更新通道尚未配置",
+                            "Update channel not configured",
+                            "Канал обновлений не настроен"
+                        ),
+                        systemImage: "lock.shield"
+                    )
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                }
+            }
+            if MCConstants.updateChecksEnabled {
+                if case .available(let version, let url) = updateState {
+                    updateAvailableRow(version: version, url: url)
+                }
+                Toggle(
+                    L10n.tr(
+                        "自动检查更新",
+                        "Automatically check for updates",
+                        "Автоматически проверять обновления"
+                    ),
+                    isOn: $automaticUpdateChecks
+                )
+                if lastUpdateCheckTimestamp > 0 {
+                    Text(L10n.tr(
+                        "上次检查：\(lastCheckedDescription)",
+                        "Last checked: \(lastCheckedDescription)",
+                        "Последняя проверка: \(lastCheckedDescription)"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -158,7 +179,7 @@ struct SettingsPageView: View {
         }
     }
 
-    static let brewUpgradeCommand = "brew upgrade --cask mac-sai"
+    static let brewUpgradeCommand = "brew upgrade --cask catcleaner"
 
     @MainActor
     private func startUpdateCheck() {
@@ -479,12 +500,32 @@ struct SettingsPageView: View {
             aboutRow(icon: "chevron.left.forwardslash.chevron.right", tint: .orange,
                      title: L10n.tr("源代码", "Source code", "Исходный код"), caption: L10n.tr("在 GitHub 上浏览代码库", "Browse the codebase on GitHub", "Открыть репозиторий на GitHub"),
                      url: MCConstants.repoURL)
-            aboutRow(icon: "exclamationmark.bubble", tint: .blue,
-                     title: L10n.tr("报告问题", "Report an issue", "Сообщить о проблеме"), caption: L10n.tr("提交错误报告和功能请求", "Bug reports and feature requests", "Отчёты об ошибках и предложения"),
-                     url: MCConstants.issuesURL)
-            aboutRow(icon: "tag", tint: .green,
-                     title: L10n.tr("发行说明", "Release notes", "Примечания к выпуску"), caption: L10n.tr("更新日志和历史版本", "Changelog and previous versions", "История изменений и предыдущие версии"),
-                     url: MCConstants.releasesURL)
+            if let issuesURL = MCConstants.issuesURL {
+                aboutRow(
+                    icon: "exclamationmark.bubble",
+                    tint: .blue,
+                    title: L10n.tr("报告问题", "Report an issue", "Сообщить о проблеме"),
+                    caption: L10n.tr(
+                        "提交错误报告和功能请求",
+                        "Bug reports and feature requests",
+                        "Отчёты об ошибках и предложения"
+                    ),
+                    url: issuesURL
+                )
+            }
+            if let releasesURL = MCConstants.releasesURL {
+                aboutRow(
+                    icon: "tag",
+                    tint: .green,
+                    title: L10n.tr("发行说明", "Release notes", "Примечания к выпуску"),
+                    caption: L10n.tr(
+                        "更新日志和历史版本",
+                        "Changelog and previous versions",
+                        "История изменений и предыдущие версии"
+                    ),
+                    url: releasesURL
+                )
+            }
         }
     }
 

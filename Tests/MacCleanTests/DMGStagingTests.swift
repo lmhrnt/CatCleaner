@@ -33,13 +33,13 @@ final class DMGStagingTests: XCTestCase {
     func testStagingGetsApplicationsSymlinkAndDropsBuildJunk() throws {
         let fm = FileManager.default
         let staging = fm.temporaryDirectory
-            .appending(path: "macsai-dmg-staging-\(UUID().uuidString)")
+            .appending(path: "catcleaner-dmg-staging-\(UUID().uuidString)")
         defer { try? fm.removeItem(at: staging) }
 
-        try fm.createDirectory(at: staging.appending(path: "Mac Sai.app/Contents"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: staging.appending(path: "CatCleaner.app/Contents"), withIntermediateDirectories: true)
         try Data("fake".utf8).write(to: staging.appending(path: "entitlements.plist"))
-        try Data("zip".utf8).write(to: staging.appending(path: "Mac Sai-notarize.zip"))
-        try Data("keep".utf8).write(to: staging.appending(path: "Mac Sai.app/Contents/Info.plist"))
+        try Data("zip".utf8).write(to: staging.appending(path: "CatCleaner-notarize.zip"))
+        try Data("keep".utf8).write(to: staging.appending(path: "CatCleaner.app/Contents/Info.plist"))
 
         let result = try runPrepare(staging: staging)
         XCTAssertEqual(result.status, 0, "prepare failed: \(result.stderr)\n\(result.stdout)")
@@ -59,11 +59,11 @@ final class DMGStagingTests: XCTestCase {
             "entitlements.plist is codesign-only and must not ship in the DMG"
         )
         XCTAssertFalse(
-            fm.fileExists(atPath: staging.appending(path: "Mac Sai-notarize.zip").path(percentEncoded: false)),
+            fm.fileExists(atPath: staging.appending(path: "CatCleaner-notarize.zip").path(percentEncoded: false)),
             "notarize zip leftovers must not ship in the DMG"
         )
         XCTAssertTrue(
-            fm.fileExists(atPath: staging.appending(path: "Mac Sai.app/Contents/Info.plist").path(percentEncoded: false)),
+            fm.fileExists(atPath: staging.appending(path: "CatCleaner.app/Contents/Info.plist").path(percentEncoded: false)),
             "the app bundle must remain"
         )
     }

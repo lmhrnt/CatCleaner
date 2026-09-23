@@ -1,7 +1,7 @@
 import AppKit
 import MacCleanKit
 
-/// The Mac Sai **menu-bar widget** icon: the user-supplied vacuum
+/// The CatCleaner **menu-bar widget** icon: the user-supplied vacuum
 /// (Downloads/vacuum.png), cropped to its content and rendered white on
 /// the brand purple-gradient squircle (fills ~82% of the tile so it
 /// reads at 18px). Embedded as base64 (128px) so it loads identically

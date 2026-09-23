@@ -56,7 +56,7 @@ final class UpdateCoordinator {
         let action = UpdateScheduler.updateAction(
             isHomebrew: UpdateChecker.isHomebrewInstall(),
             releaseURL: url,
-            brewCommand: "brew upgrade --cask mac-sai"
+            brewCommand: "brew upgrade --cask catcleaner"
         )
         pendingUpdate = PendingUpdate(version: version, action: action)
     }

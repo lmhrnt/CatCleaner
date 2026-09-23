@@ -190,7 +190,7 @@ public enum MCConstants {
 
     // English, Chinese, Russian (in common modern and legacy forms), and Base
     // are never offered for deletion. These include the interface languages
-    // Mac Sai supports plus the base resources many apps require.
+    // CatCleaner supports plus the base resources many apps require.
     public static let preservedLanguages: Set<String> = [
         "en.lproj", "English.lproj", "Base.lproj", "en_US.lproj", "en_GB.lproj",
         "zh.lproj", "zh-Hans.lproj", "zh-Hant.lproj", "zh_CN.lproj", "zh_TW.lproj",
@@ -205,18 +205,20 @@ public enum MCConstants {
 
     // MARK: - Project links
 
+    /// Upstream source reference retained for attribution while CatCleaner has
+    /// no public repository of its own.
     public static let repoURL = URL(string: "https://github.com/iliyami/MacSai")!
-    public static let issuesURL = URL(string: "https://github.com/iliyami/MacSai/issues/new/choose")!
-    public static let releasesURL = URL(string: "https://github.com/iliyami/MacSai/releases")!
-    public static let latestReleaseAPI = URL(string: "https://api.github.com/repos/iliyami/MacSai/releases/latest")!
-    /// Downstream CatCleaner must not advertise upstream Mac Sai releases.
-    /// Enable only after CatCleaner owns a signed release feed.
+    public static let issuesURL: URL? = nil
+    /// CatCleaner does not own a release channel yet. Keep these nil so every
+    /// update-check entry point fails closed instead of querying the upstream
+    /// Mac Sai project or its Homebrew cask.
+    public static let releasesURL: URL? = nil
+    public static let latestReleaseAPI: URL? = nil
+    public static let homebrewCaskAPI: URL? = nil
+
+    /// Enable only after CatCleaner owns a signed release feed and, if used,
+    /// a CatCleaner-specific Homebrew cask.
     public static let updateChecksEnabled = false
-    /// Homebrew's public API for the official cask. Its `version` reflects what
-    /// `brew upgrade --cask mac-sai` can actually install right now (autobump
-    /// lags GitHub releases by a few days), so Homebrew installs check this
-    /// instead of the GitHub release to keep the update prompt in sync.
-    public static let homebrewCaskAPI = URL(string: "https://formulae.brew.sh/api/cask/mac-sai.json")!
 
     // MARK: - App version
     //

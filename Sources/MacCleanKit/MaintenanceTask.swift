@@ -1,6 +1,6 @@
 import Foundation
 
-/// The set of maintenance tasks Mac Sai knows how to run. Pure data — the
+/// The set of maintenance tasks CatCleaner knows how to run. Pure data — the
 /// actual `Process` execution happens in `MaintenanceExecutor` in the
 /// MacClean target.
 public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
