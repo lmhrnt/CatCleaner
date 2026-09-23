@@ -17,7 +17,7 @@
 | 系統/應用程式快取與記錄 | ✅ | Caches / Logs / package manager / IDE / AI tool categories |
 | 瀏覽器相關清理 | ✅ | Privacy / browser cache ownership safeguards |
 | 垃圾桶 | ✅ | Trash 模組；清空垃圾桶是明確不可逆確認 |
-| 可清除空間 | ✅ | Maintenance / Purgeable Space |
+| 可清除空間 | 🛡️ | 低 urgency `tmutil thinlocalsnapshots`；需確認，會減少本機 Time Machine restore points，且只處理 purgeable space 的一個來源 |
 | App 完整解除安裝 | ✅ | Uninstaller + associated files |
 | 已刪除 App 殘留 | ✅ | Removed App Leftovers；bundle-ID / LaunchServices 交叉檢查，預設零選取 |
 | 大型檔案 >50 MB | ✅ | Large & Old Files |

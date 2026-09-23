@@ -87,6 +87,8 @@ final class MaintenanceTaskTests: EnglishAppLanguageTestCase {
                        "Thin Time Machine Snapshots deletes local snapshots — must be .advanced")
         XCTAssertEqual(MaintenanceTask.freeUpRAM.severity, .advanced,
                        "purge drops caches and can briefly slow apps — must require explicit consent")
+        XCTAssertEqual(MaintenanceTask.freeUpPurgeableSpace.severity, .advanced,
+                       "snapshot thinning removes local restore points — must require explicit consent")
     }
 
     /// SPEC: every-day-safe tasks stay safe (no friction).
@@ -120,6 +122,12 @@ final class MaintenanceTaskTests: EnglishAppLanguageTestCase {
         XCTAssertTrue(memoryCopy.contains("does not add physical ram"))
         XCTAssertTrue(memoryCopy.contains("slower"))
         XCTAssertTrue(memoryCopy.contains("automatically"))
+
+        let purgeableCopy = MaintenanceTask.freeUpPurgeableSpace.sideEffects.lowercased()
+        XCTAssertTrue(purgeableCopy.contains("local restore points"))
+        XCTAssertTrue(purgeableCopy.contains("may reclaim less"))
+        XCTAssertTrue(purgeableCopy.contains("one source of purgeable space"))
+        XCTAssertFalse(purgeableCopy.contains("already flagged"))
     }
 
     func testAllExecutablePathsAreAbsolute() {

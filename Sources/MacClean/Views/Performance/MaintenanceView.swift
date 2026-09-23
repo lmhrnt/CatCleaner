@@ -182,7 +182,7 @@ struct MaintenanceView: View {
     }
 
     /// Bulk button runs ONLY safe tasks, and runs them SEQUENTIALLY. Several
-    /// safe tasks need admin (purgeable-space thinning, periodic). Sequential order keeps the
+    /// some remaining safe tasks need admin (periodic maintenance). Sequential order keeps the
     /// UI status per-task; the in-process AppleScript runner then reuses the
     /// cached admin password so the user types it once (issues #82 / #143).
     private func runSafeTasks() {

@@ -61,7 +61,11 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
                 "Попросить macOS очистить высвобождаемую неактивную память и файловый кэш; обычно система управляет этим автоматически"
             )
         case .freeUpPurgeableSpace:
-            L10n.tr("通过精简低优先级本地快照回收可清除磁盘空间", "Reclaim purgeable disk space by thinning low-priority local snapshots", "Освободить место на диске, сократив низкоприоритетные локальные снимки")
+            L10n.tr(
+                "以低优先级请求 Time Machine 精简本地快照，尝试回收一种常见的可清除空间来源；不代表所有可清除空间",
+                "Ask Time Machine at low urgency to thin local snapshots, attempting to reclaim one common source of purgeable space; this does not represent all purgeable space",
+                "Попросить Time Machine с низким приоритетом сократить локальные снимки, чтобы попытаться освободить один из распространённых источников очищаемого места; это не всё очищаемое пространство"
+            )
         case .runMaintenanceScripts:
             L10n.tr("执行 macOS 内置的每日、每周和每月维护任务", "Execute macOS built-in daily, weekly, and monthly maintenance routines", "Запустить встроенные ежедневные, еженедельные и ежемесячные задачи обслуживания macOS")
         case .verifyStartupDisk:
@@ -95,14 +99,14 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
     public var severity: Severity {
         switch self {
         // Read-only or trivially reversible — run on click.
-        case .freeUpPurgeableSpace,     // deletes only files marked purgeable
-             .verifyStartupDisk,        // read-only check
+        case .verifyStartupDisk,        // read-only check
              .flushDNSCache,            // re-resolves in ms
              .runMaintenanceScripts:    // Apple-blessed periodic routines
             .safe
 
         // Noticeable/irreversible side effects — require explicit consent.
         case .freeUpRAM,                // drops caches; apps/files may reload and briefly slow down
+             .freeUpPurgeableSpace,     // thins local Time Machine snapshots
              .speedUpMail,              // rebuilds Mail envelope index
              .rebuildLaunchServices,    // wipes app/file-type DB — hours of broken double-clicks
              .reindexSpotlight,         // wipes Spotlight index — search dies for hours
@@ -125,7 +129,11 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
                 "Показатель занятой памяти может временно снизиться, но это не добавляет физическую ОЗУ и не гарантирует длительного ускорения. Приложениям и файлам может потребоваться заново загрузить очищенный кэш, поэтому система на короткое время может стать медленнее; обычно macOS сама освобождает эту память."
             )
         case .freeUpPurgeableSpace:
-            L10n.tr("仅移除 macOS 已标记可清理的 Time Machine 本地快照；不会删除你主动需要的内容。", "Time Machine local snapshots that macOS already flagged for cleanup are removed; nothing the user actively needs is deleted.", "Удаляются только локальные снимки Time Machine, уже помеченные macOS для очистки; нужные вам данные не удаляются.")
+            L10n.tr(
+                "会请求 Time Machine 以低优先级删除/精简这台 Mac 的本地快照，因此部分本机还原点可能不再可用；备份磁盘或远端备份不会因此被删除。tmutil 只会尝试回收指定容量，实际回收量可能较少，而且这只针对可清除空间的一种来源。",
+                "Time Machine is asked at low urgency to delete/thin local snapshots on this Mac, so some local restore points may no longer be available. Backups on a backup disk or remote destination are not deleted by this command. tmutil only attempts to reclaim the requested amount, may reclaim less, and this targets just one source of purgeable space.",
+                "Time Machine с низким приоритетом попытается удалить/сократить локальные снимки на этом Mac, поэтому некоторые локальные точки восстановления могут стать недоступны. Резервные копии на внешнем или удалённом хранилище этой командой не удаляются. tmutil лишь пытается освободить заданный объём, может освободить меньше и затрагивает только один источник очищаемого пространства."
+            )
         case .runMaintenanceScripts:
             L10n.tr("通常没有可见影响——这些脚本与 macOS 夜间自动运行的维护脚本相同。", "No visible effect — these are the same scripts macOS runs on its own overnight.", "Обычно без заметных последствий — это те же скрипты обслуживания, которые macOS запускает ночью.")
         case .verifyStartupDisk:
