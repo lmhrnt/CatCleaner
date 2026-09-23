@@ -4,6 +4,7 @@ import MacCleanKit
 
 public enum LaunchServicesError: LocalizedError, Sendable {
     case backupFailed(Error)
+    case invalidBackup(String)
     case restoreFailed(Error)
     case deleteFailed(String)
 
@@ -14,6 +15,12 @@ public enum LaunchServicesError: LocalizedError, Sendable {
                 "备份失败：\(error.localizedDescription)",
                 "Backup failed: \(error.localizedDescription)",
                 "Не удалось создать резервную копию: \(error.localizedDescription)"
+            )
+        case .invalidBackup(let reason):
+            return L10n.tr(
+                "备份文件无效：\(reason)",
+                "Invalid backup file: \(reason)",
+                "Недопустимый файл резервной копии: \(reason)"
             )
         case .restoreFailed(let error):
             return L10n.tr(
@@ -150,30 +157,141 @@ public final class LaunchServicesService: @unchecked Sendable {
 
     /// List available backups newest-first (sorted by filename timestamp).
     public func listBackups() -> [URL] {
-        guard let contents = try? FileManager.default
-            .contentsOfDirectory(at: backupDir,
-                                includingPropertiesForKeys: nil)
-        else { return [] }
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: backupDir,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ) else {
+            return []
+        }
+
         return contents
-            .filter { $0.pathExtension == "plist" }
+            .filter { isValidBackupPath($0, requireValidPlist: true) }
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
     }
 
-    /// Restore a backup to the live plist path using an atomic swap so a
-    /// mid-failure can never leave the user with neither file.
+    /// Restore a CatCleaner-created backup to the live plist path using an
+    /// atomic swap. The actuator independently validates the backup source;
+    /// it does not trust the UI to pass a URL returned by the backup list.
+    /// The current live plist is backed up once more before replacement so a
+    /// restore itself remains reversible.
     public func restoreBackup(from url: URL) throws {
+        guard isValidBackupPath(url, requireValidPlist: true) else {
+            throw LaunchServicesError.invalidBackup(
+                "source must be a regular, non-symlink CatCleaner LaunchServices backup"
+            )
+        }
+
+        // Snapshot the source bytes before backup(): at the retention cap,
+        // adding the current state may prune the selected historical file.
+        let sourceData: Data
+        do {
+            sourceData = try Data(contentsOf: url)
+        } catch {
+            throw LaunchServicesError.restoreFailed(error)
+        }
+
+        // Keep the pre-restore live state reversible.
+        try backup()
+
         let dst = URL(fileURLWithPath: plistPath)
         let tmpDir = dst.deletingLastPathComponent()
         let tmpURL = tmpDir.appending(path: ".launchservices-restore-tmp.plist")
-        // Clean any stale temp from a previous crash.
         try? FileManager.default.removeItem(at: tmpURL)
+
         do {
-            try FileManager.default.copyItem(at: url, to: tmpURL)
+            try sourceData.write(to: tmpURL, options: [.atomic])
+
+            guard isValidLaunchServicesPlist(at: tmpURL) else {
+                throw LaunchServicesError.invalidBackup(
+                    "staged backup no longer parses as a LaunchServices plist"
+                )
+            }
+
             _ = try FileManager.default.replaceItemAt(dst, withItemAt: tmpURL)
+        } catch let error as LaunchServicesError {
+            try? FileManager.default.removeItem(at: tmpURL)
+            throw error
         } catch {
             try? FileManager.default.removeItem(at: tmpURL)
             throw LaunchServicesError.restoreFailed(error)
         }
+    }
+
+    /// True only for CatCleaner-created backup files inside this service's
+    /// backup directory. Rejects symlinks and traversal or alias escapes.
+    private func isValidBackupPath(
+        _ url: URL,
+        requireValidPlist: Bool
+    ) -> Bool {
+        let candidate = url.standardizedFileURL
+        let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
+        let root = backupDir.standardizedFileURL
+        let resolvedRoot = root.resolvingSymlinksInPath().standardizedFileURL
+
+        func canonicalizeMacOSFirmlink(_ path: String) -> String {
+            for name in ["var", "tmp", "etc"] {
+                let privatePrefix = "/private/\(name)"
+                if path == privatePrefix {
+                    return "/\(name)"
+                }
+                if path.hasPrefix(privatePrefix + "/") {
+                    return "/\(name)" + path.dropFirst(privatePrefix.count)
+                }
+            }
+            return path
+        }
+
+        guard canonicalizeMacOSFirmlink(candidate.path(percentEncoded: false))
+                == canonicalizeMacOSFirmlink(resolved.path(percentEncoded: false))
+        else {
+            return false
+        }
+
+        func isStrictDescendant(_ child: URL, of root: URL) -> Bool {
+            let childPath = canonicalizeMacOSFirmlink(
+                child.path(percentEncoded: false)
+            )
+            let rootPath = canonicalizeMacOSFirmlink(
+                root.path(percentEncoded: false)
+            ).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            let normalizedRoot = rootPath.isEmpty ? "/" : "/" + rootPath
+            guard childPath != normalizedRoot else { return false }
+            let prefix = normalizedRoot == "/" ? "/" : normalizedRoot + "/"
+            return childPath.hasPrefix(prefix)
+        }
+
+        guard isStrictDescendant(candidate, of: root),
+              isStrictDescendant(resolved, of: resolvedRoot),
+              candidate.pathExtension.lowercased() == "plist",
+              candidate.lastPathComponent.hasPrefix("launchservices-")
+        else {
+            return false
+        }
+
+        guard let values = try? candidate.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ),
+        values.isRegularFile == true,
+        values.isSymbolicLink != true
+        else {
+            return false
+        }
+
+        return !requireValidPlist || isValidLaunchServicesPlist(at: candidate)
+    }
+
+    private func isValidLaunchServicesPlist(at url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: data,
+                  options: [],
+                  format: nil
+              ) as? [String: Any],
+              plist["LSHandlers"] is [[String: Any]]
+        else {
+            return false
+        }
+        return true
     }
 
     // MARK: - Helpers

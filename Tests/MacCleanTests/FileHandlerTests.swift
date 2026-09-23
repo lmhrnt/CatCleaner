@@ -353,4 +353,127 @@ final class LaunchServicesServiceDeleteBackupTests: XCTestCase {
             XCTAssertEqual(backups.count, 2)
         }
     }
+
+    func testRestoreRejectsValidPlistOutsideBackupDirectory() throws {
+        try TestFixtures.withTempDir { dir in
+            let service = try makeService(dir: dir, data: [
+                "LSHandlers": [
+                    ["LSHandlerURLScheme": "mailto"],
+                ]
+            ])
+
+            let outside = dir.appending(path: "external-valid.plist")
+            try TestFixtures.writePlist([
+                "LSHandlers": [
+                    ["LSHandlerURLScheme": "https"],
+                ]
+            ], to: outside)
+
+            XCTAssertThrowsError(try service.restoreBackup(from: outside)) { error in
+                guard case LaunchServicesError.invalidBackup = error else {
+                    return XCTFail("expected invalidBackup, got \(error)")
+                }
+            }
+            XCTAssertEqual(service.loadHandlers().first?.urlScheme, "mailto")
+        }
+    }
+
+    func testBackupListAndRestoreRejectSymlinkSource() throws {
+        try TestFixtures.withTempDir { dir in
+            let service = try makeService(dir: dir, data: [
+                "LSHandlers": [
+                    ["LSHandlerURLScheme": "mailto"],
+                ]
+            ])
+            try service.backup()
+            let realBackup = try XCTUnwrap(service.listBackups().first)
+
+            let link = realBackup.deletingLastPathComponent()
+                .appending(path: "launchservices-linked.plist")
+            try FileManager.default.createSymbolicLink(
+                at: link,
+                withDestinationURL: realBackup
+            )
+
+            XCTAssertFalse(service.listBackups().contains(link))
+            XCTAssertThrowsError(try service.restoreBackup(from: link)) { error in
+                guard case LaunchServicesError.invalidBackup = error else {
+                    return XCTFail("expected invalidBackup, got \(error)")
+                }
+            }
+        }
+    }
+
+    func testBackupListRejectsMalformedLaunchServicesPlist() throws {
+        try TestFixtures.withTempDir { dir in
+            let service = try makeService(dir: dir, data: [
+                "LSHandlers": [
+                    ["LSHandlerURLScheme": "mailto"],
+                ]
+            ])
+            try service.backup()
+            let backup = try XCTUnwrap(service.listBackups().first)
+            let malformed = backup.deletingLastPathComponent()
+                .appending(path: "launchservices-malformed.plist")
+            try Data("not a plist".utf8).write(to: malformed)
+
+            XCTAssertFalse(service.listBackups().contains(malformed))
+            XCTAssertThrowsError(try service.restoreBackup(from: malformed)) { error in
+                guard case LaunchServicesError.invalidBackup = error else {
+                    return XCTFail("expected invalidBackup, got \(error)")
+                }
+            }
+        }
+    }
+
+    func testRestoreBacksUpCurrentLiveStateBeforeReplacement() throws {
+        try TestFixtures.withTempDir { dir in
+            let service = try makeService(dir: dir, data: [
+                "LSHandlers": [
+                    ["LSHandlerURLScheme": "https"],
+                    ["LSHandlerURLScheme": "mailto"],
+                ]
+            ])
+
+            try service.backup()
+            let historical = try XCTUnwrap(service.listBackups().first)
+
+            let entry = HandlerEntry(
+                id: UUID(),
+                contentType: nil,
+                contentTag: nil,
+                contentTagClass: nil,
+                roleAll: nil,
+                urlScheme: "https",
+                modificationDate: nil
+            )
+            try service.deleteHandler(entry)
+            XCTAssertEqual(service.loadHandlers().count, 1)
+
+            try service.restoreBackup(from: historical)
+            XCTAssertEqual(service.loadHandlers().count, 2)
+
+            let backups = service.listBackups()
+            XCTAssertGreaterThanOrEqual(backups.count, 3)
+
+            let handlerCounts = backups.compactMap { url -> Int? in
+                guard let data = try? Data(contentsOf: url),
+                      let plist = try? PropertyListSerialization.propertyList(
+                          from: data,
+                          options: [],
+                          format: nil
+                      ) as? [String: Any],
+                      let handlers = plist["LSHandlers"] as? [[String: Any]]
+                else {
+                    return nil
+                }
+                return handlers.count
+            }
+
+            XCTAssertTrue(
+                handlerCounts.contains(1),
+                "restore must preserve the pre-restore one-handler state as a backup"
+            )
+        }
+    }
 }
