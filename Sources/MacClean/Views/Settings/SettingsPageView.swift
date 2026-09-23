@@ -444,9 +444,17 @@ struct SettingsPageView: View {
 
     private var aboutSection: some View {
         Section(L10n.tr("关于", "About", "О программе")) {
-            aboutRow(icon: "chevron.left.forwardslash.chevron.right", tint: .orange,
-                     title: L10n.tr("源代码", "Source code", "Исходный код"), caption: L10n.tr("在 GitHub 上浏览代码库", "Browse the codebase on GitHub", "Открыть репозиторий на GitHub"),
-                     url: MCConstants.repoURL)
+            aboutRow(
+                icon: "chevron.left.forwardslash.chevron.right",
+                tint: .orange,
+                title: L10n.tr("上游原始码", "Upstream source", "Исходный код upstream"),
+                caption: L10n.tr(
+                    "查看 CatCleaner 衍生自的 Mac Sai 上游项目",
+                    "View the Mac Sai upstream project CatCleaner is derived from",
+                    "Открыть upstream-проект Mac Sai, на основе которого создан CatCleaner"
+                ),
+                url: MCConstants.repoURL
+            )
             if let issuesURL = MCConstants.issuesURL {
                 aboutRow(
                     icon: "exclamationmark.bubble",

@@ -115,8 +115,6 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <string>14.0</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSUIElement</key>
@@ -137,10 +135,6 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
 </dict>
 </plist>
 PLIST
-
-if [ -f "Resources/AppIcon.icns" ]; then
-    cp "Resources/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
-fi
 
 # Step 2.5: Nest the menu bar widget inside the main app as a LoginItem.
 # SMAppService.loginItem(identifier:) expects the helper at this exact path
@@ -188,8 +182,6 @@ cat > "${MENU_APP}/Contents/Info.plist" << MENU_PLIST
     <string>14.0</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSUIElement</key>
@@ -197,10 +189,6 @@ cat > "${MENU_APP}/Contents/Info.plist" << MENU_PLIST
 </dict>
 </plist>
 MENU_PLIST
-
-if [ -f "Resources/AppIcon.icns" ]; then
-    cp "Resources/AppIcon.icns" "${MENU_APP}/Contents/Resources/"
-fi
 
 # Step 3: Entitlements (needed for notarization with hardened runtime).
 # Keep this OUTSIDE the DMG staging folder — it is codesign input only and

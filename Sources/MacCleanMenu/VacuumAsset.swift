@@ -7,8 +7,9 @@ import MacCleanKit
 /// reads at 18px). Embedded as base64 (128px) so it loads identically
 /// under `swift run` and inside the DMG.
 ///
-/// ONLY the menu-bar widget icon. The main app icon
-/// (Resources/AppIcon.icns) is intentionally left untouched.
+/// ONLY the menu-bar widget icon. CatCleaner intentionally ships without a
+/// custom main-app icon until a CatCleaner-owned visual asset is added; the
+/// main app therefore uses the macOS generic application icon for now.
 enum VacuumAsset {
     // NSImage isn't Sendable; this is built once and only read, so it's
     // safe to mark unchecked for Swift 6 strict concurrency.

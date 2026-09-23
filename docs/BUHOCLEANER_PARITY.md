@@ -45,6 +45,7 @@
 | 本地端執行 / 零遙測方向 | ✅ | 本地掃描；未新增 telemetry |
 | Apple Silicon | ✅ | SwiftPM / arm64 開發路徑 |
 | macOS 14+ | ✅ | Package.swift 最低 macOS 14 |
+| CatCleaner 自有主圖示/視覺品牌 | ⚠️ | upstream AppIcon/demo/social-preview 已移除；自有主圖示完成前使用 macOS generic application icon |
 | 正式 Developer ID 簽章 | ⚠️ | CatCleaner 不繼承 upstream Team ID；自己的 Team ID 尚未配置 |
 | Notarization | ⚠️ | 發佈 workflow 刻意 disabled，避免誤用 upstream identity |
 | 自動更新 | ⚠️ | fail-closed；等待 CatCleaner 自有 signed release feed |

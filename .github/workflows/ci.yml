@@ -123,6 +123,16 @@ jobs:
           rg -n 'public static let updateChecksEnabled = false'             Sources/MacCleanKit/Constants.swift >/dev/null
           rg -n 'public static let teamIdentifier: String\? = nil'             Sources/MacCleanKit/Constants.swift >/dev/null
 
+          # A future CatCleaner-owned icon is allowed, but the exact upstream
+          # Mac Sai icon must never silently return to this downstream product.
+          if [ -f Resources/AppIcon.icns ]; then
+            icon_sha=$(shasum -a 256 Resources/AppIcon.icns | awk '{print $1}')
+            if [ "$icon_sha" = "216276c7544ea99500930c333b55bb740689c0b60c079ce7b4b1e4cf459ede9f" ]; then
+              echo "::error::Upstream Mac Sai AppIcon returned unchanged"
+              exit 1
+            fi
+          fi
+
       - name: Verify Smart Scan preselection stays fail-closed
         run: |
           if rg -n 'autoSelect:\s*true' Sources; then

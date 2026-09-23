@@ -2,7 +2,7 @@
 # Fast local install for development: build the app bundle (native arch only,
 # ad-hoc signed, no DMG/notarization) and replace /Applications/CatCleaner.app
 # with it. For checking a branch build on your own machine in about a minute;
-# real releases still go through build-dmg.sh --notarize in CI.
+# Future public releases will use build-dmg.sh --notarize only after CatCleaner-owned signing/notarization infrastructure is enabled.
 #
 # Usage: ./scripts/dev-install.sh
 
@@ -52,7 +52,7 @@ open "${DEST}"
 
 echo ""
 echo "Done. Notes:"
-echo "  - This build is ad-hoc signed; its signature differs from the notarized"
+echo "  - This build is ad-hoc signed; its signature will differ from a future notarized"
 echo "    release, so macOS may ask you to re-grant Full Disk Access"
 echo "    (System Settings -> Privacy & Security -> Full Disk Access)."
 echo "  - CatCleaner currently has no Homebrew cask; this dev install is isolated from Mac Sai."

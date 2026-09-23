@@ -2,7 +2,7 @@
 
 CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清理與儲存空間分析工具。目標是在保留透明、安全清理架構的前提下，強化繁體中文（台灣）、開發者/AI 工具清理、重複檔案與照片整理，以及更保守的 retention-aware 清理策略。
 
-> 狀態：早期開發版 `0.1.0`。目前尚未提供正式簽章、notarized release、Homebrew cask 或遠端安裝器。
+> 狀態：早期開發版 `0.1.0`。目前尚未提供正式簽章、notarized release、Homebrew cask 或遠端安裝器。上游 Mac Sai 的 AppIcon/demo/social-preview 資產已移除；在 CatCleaner 自有主圖示完成前，App 暫時使用 macOS generic application icon。
 
 ## 目前已完成
 
