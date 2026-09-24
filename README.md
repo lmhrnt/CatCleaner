@@ -116,21 +116,22 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 目前此 Mac 只安裝 Apple Command Line Tools，沒有完整 Xcode。因此：
 
 - `swift build --target MacCleanKit`：PASS
-- CatCleaner 新增 SwiftUI 檔案：Swift parser PASS
-- 完整 `MacClean` app build：會因缺少 `SwiftUIMacros` plugin 失敗
-- XCTest：會因 Command Line Tools 環境缺少完整 `XCTest` framework 失敗
+- CatCleaner SwiftUI parser / semantic checks：PASS
+- Xcode 27.0 app/tests preflight：PASS
+- XCTest：目前 source 359 個 `MacCleanTests` 與 600 個 `MacCleanKitTests`（1 skipped）皆 0 failure
 
-完整 App build / XCTest 需要安裝完整 Xcode，並以 Xcode developer directory 執行。安裝本身不直接解除 release gate；還必須由 `./scripts/xcode-qualification.sh --full` 對目前乾淨 HEAD/tree 跑完 XCTest、完整功能 gate、universal app build 與 bundle 驗證，產生 `.build/qualification/xcode-qualification-v1.json`。
+完整 App build / XCTest 由 `./scripts/xcode-qualification.sh --full` 對目前乾淨 HEAD/tree 執行。full mode 會先移除 `.build/out` 的舊 SwiftPM compiled products，避免 stale XCTest binary 被誤當成目前 source 的結果；全部通過後產生 `.build/qualification/xcode-qualification-v1.json`。
 
-功能完成度與公開發佈採兩條獨立 gate：
+CatCleaner 目前的主要使用目標是**本機自用 App**，不要求付費 Apple Developer Program、Developer ID、notarization、App Store 或 GitHub Release：
 
 ```bash
-./scripts/feature-readiness.sh --quick
 ./scripts/feature-readiness.sh --full
-./scripts/release-readiness.sh
+./scripts/xcode-qualification.sh --full
+./scripts/dev-install.sh
+./scripts/local-app-readiness.sh
 ```
 
-目前功能 gate 已可達 `verdict=FEATURE_COMPLETE_LOCAL`；公開發佈 gate 則預期維持 `verdict=HOLD`，直到 CatCleaner 的完整 Xcode、GitHub origin 與 Developer ID 都完成 qualification。三者都不是「存在就算通過」：Xcode 需 full build/test receipt；origin 需 GitHub ADMIN + remote HEAD parity receipt；Developer ID 需 certificate fingerprint / Team ID / validity receipt。release/signing workflow 已具備 fail-closed 骨架，並由 `scripts/check-release-contract.py` 與 CI 驗證；在 CatCleaner 自有 secrets、tag 與明確 `publish=true` 不成立時不會發布。warning（自有主圖示、自動更新、Homebrew、notary profile 等）會另外列出，不與 required blocker 混在一起。
+最終本機 gate 為 `verdict=LOCAL_APP_READY`。本機安裝使用獨立的 `CatCleaner Local Code Signing` 自簽 identity，使 bundle 的 code-sign identity 在重建後保持穩定；它**不是 Developer ID**，只供這台 Mac 自用。公開發佈仍保留為另一條可選的 fail-closed workflow，但不再是本機使用的 blocker。
 
 ## 本機開發
 
@@ -139,13 +140,15 @@ cd ~/Documents/CatCleaner
 swift build --target MacCleanKit
 ```
 
-完整 Xcode 安裝後優先執行 one-shot qualification：
+完整 Xcode 安裝後先執行 exact-source qualification，再安裝本機 App：
 
 ```bash
 ./scripts/xcode-qualification.sh --full
+./scripts/dev-install.sh
+./scripts/local-app-readiness.sh
 ```
 
-它會依序執行 app/tests preflight、XCTest coverage、完整功能 gate、universal `.app` build、bundle ID／版本／架構／codesign 驗證，並在全部通過後產生 SHA-bound qualification receipt。若只要快速開發驗證，可用：
+qualification 會依序執行 app/tests preflight、fresh XCTest coverage、完整功能 gate、universal `.app` build、bundle ID／版本／架構／codesign 驗證，並在全部通過後產生 SHA-bound receipt。dev install 則建立／使用 CatCleaner 專用本機簽章、建置 native-arch release、安裝到 `/Applications/CatCleaner.app` 並做啟動 smoke test。若只要快速開發驗證，可用：
 
 ```bash
 ./scripts/xcode-qualification.sh --quick
@@ -175,6 +178,18 @@ docs/BUHOCLEANER_PARITY.md
 - 第三方 App 更新檢查只有使用者按下「檢查更新」才會直接連各 App 的 HTTPS Sparkle feed。
 - 網路能力由 `scripts/check-network-surface.py` 與 CI allowlist 強制限制。
 - 詳見 `PRIVACY.md`。
+
+### 自行驗證無遙測
+
+不必只依賴上述宣告；可在專案根目錄直接執行：
+
+```bash
+python3 scripts/check-network-surface.py
+rg -n 'URLSession|NSURLConnection' Sources --glob '*.swift'
+lsof -i -P -n | grep -i 'CatCleaner\|MacClean' || echo "no CatCleaner network sockets"
+```
+
+第一個命令是 CI 使用的 bounded network-surface contract；後兩個命令分別讓你檢查原始碼中的網路 API 與目前實際開啟的 socket。
 
 ## 安全原則
 

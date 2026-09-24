@@ -64,6 +64,13 @@ python3 "${SCRIPT_DIR}/check-process-pipe-order.py"
 
 echo
 echo "== XCTest with coverage =="
+if [[ "$MODE" == "--full" ]]; then
+  # Full qualification must not trust incremental XCTest products from an older
+  # source state/toolchain. Keep custom .build/qualification receipts intact,
+  # but force SwiftPM to rebuild every compiled test/product from this HEAD.
+  echo "Removing stale SwiftPM compiled products: .build/out"
+  /bin/rm -rf .build/out
+fi
 "${SCRIPT_DIR}/test.sh" --enable-code-coverage
 
 PROF="$(find .build -name '*.profdata' -type f -print -quit)"
