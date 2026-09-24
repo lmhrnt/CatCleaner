@@ -140,6 +140,20 @@ struct BatteryCareView: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+
+                    if monitor.directSMCWriteBlocked {
+                        Text("此韌體版本對一般第三方直接 SMC 寫入有限制。macOS 26.4 以上仍提供 80%～100% 的原生充電上限。")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+
+                        Link(
+                            "開啟 macOS 電池設定",
+                            destination: URL(
+                                string: "x-apple.systempreferences:com.apple.Battery-Settings.extension"
+                            )!
+                        )
+                        .font(.caption.weight(.semibold))
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -325,15 +339,52 @@ struct BatteryCareView: View {
         _ title: String,
         capability: BatteryControlCapability
     ) -> some View {
-        let supported = monitor.snapshot.capabilities.contains(capability)
+        let keyVisible = monitor.snapshot.capabilities.contains(capability)
+        let writeRestricted = monitor.directSMCWriteBlocked
+            && capability != .batteryTemperature
+
         return HStack {
-            Image(systemName: supported ? "checkmark.circle.fill" : "minus.circle")
-                .foregroundStyle(supported ? .green : .secondary)
+            Image(systemName: capabilityIcon(
+                keyVisible: keyVisible,
+                writeRestricted: writeRestricted
+            ))
+            .foregroundStyle(capabilityColor(
+                keyVisible: keyVisible,
+                writeRestricted: writeRestricted
+            ))
+
             Text(title)
             Spacer()
-            Text(supported ? "已偵測" : "尚未確認")
-                .foregroundStyle(.secondary)
+            Text(capabilityStatus(
+                keyVisible: keyVisible,
+                writeRestricted: writeRestricted
+            ))
+            .foregroundStyle(.secondary)
         }
+    }
+
+    private func capabilityIcon(
+        keyVisible: Bool,
+        writeRestricted: Bool
+    ) -> String {
+        if writeRestricted, keyVisible { return "exclamationmark.triangle.fill" }
+        return keyVisible ? "checkmark.circle.fill" : "minus.circle"
+    }
+
+    private func capabilityColor(
+        keyVisible: Bool,
+        writeRestricted: Bool
+    ) -> Color {
+        if writeRestricted, keyVisible { return .orange }
+        return keyVisible ? .green : .secondary
+    }
+
+    private func capabilityStatus(
+        keyVisible: Bool,
+        writeRestricted: Bool
+    ) -> String {
+        if writeRestricted, keyVisible { return "Key 可見／寫入受限" }
+        return keyVisible ? "已偵測" : "尚未確認"
     }
 
     private func explainUnavailableHardwareControl(_ action: String) {

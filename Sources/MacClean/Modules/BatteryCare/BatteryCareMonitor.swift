@@ -1,6 +1,93 @@
 import Foundation
+import IOKit
 import Observation
 import MacCleanKit
+
+struct FirmwareVersion: Sendable, Equatable, Comparable {
+    let components: [Int]
+
+    init?(_ rawValue: String) {
+        let normalized = rawValue
+            .replacingOccurrences(of: "mBoot-", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = normalized.split(separator: ".")
+        guard !parts.isEmpty else { return nil }
+
+        var parsed: [Int] = []
+        for part in parts {
+            guard let value = Int(part) else { return nil }
+            parsed.append(value)
+        }
+
+        while parsed.count > 1, parsed.last == 0 {
+            parsed.removeLast()
+        }
+        components = parsed
+    }
+
+    static func < (lhs: FirmwareVersion, rhs: FirmwareVersion) -> Bool {
+        let count = max(lhs.components.count, rhs.components.count)
+        for index in 0..<count {
+            let left = index < lhs.components.count ? lhs.components[index] : 0
+            let right = index < rhs.components.count ? rhs.components[index] : 0
+            if left != right { return left < right }
+        }
+        return false
+    }
+}
+
+enum DirectSMCWriteDisposition: Sendable, Equatable {
+    case candidate
+    case knownBlocked
+    case unknown
+}
+
+enum BatteryFirmwarePolicy {
+    // batt's current compatibility matrix marks 20457.0.125.0.2 and later
+    // macOS 27 firmware as unavailable to ordinary third-party SMC control.
+    static let knownBlockedSince = FirmwareVersion("20457.0.125.0.2")!
+
+    static func directSMCWriteDisposition(
+        firmwareVersion rawValue: String?
+    ) -> DirectSMCWriteDisposition {
+        guard let rawValue, let version = FirmwareVersion(rawValue) else {
+            return .unknown
+        }
+        return version >= knownBlockedSince ? .knownBlocked : .candidate
+    }
+}
+
+enum FirmwareVersionProbe {
+    static func current() -> String? {
+        let entry = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/chosen")
+        guard entry != 0 else { return nil }
+        defer { IOObjectRelease(entry) }
+
+        guard let unmanaged = IORegistryEntryCreateCFProperty(
+            entry,
+            "system-firmware-version" as CFString,
+            kCFAllocatorDefault,
+            0
+        ) else {
+            return nil
+        }
+
+        let value = unmanaged.takeRetainedValue()
+        if let string = value as? String {
+            return normalized(string)
+        }
+        if let data = value as? Data {
+            return normalized(String(decoding: data, as: UTF8.self))
+        }
+        return nil
+    }
+
+    private static func normalized(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\0", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
 
 struct SMCCapabilityReport: Sendable, Equatable {
     let existingKeys: Set<String>
@@ -136,6 +223,12 @@ enum SMCCapabilityProbe {
 @Observable
 final class BatteryCareMonitor {
     private(set) var competingController: String?
+    private(set) var firmwareVersion: String?
+    private(set) var directSMCWriteDisposition: DirectSMCWriteDisposition = .unknown
+
+    var directSMCWriteBlocked: Bool {
+        directSMCWriteDisposition == .knownBlocked
+    }
 
     private(set) var snapshot = BatteryCareSnapshot(
         levelPercent: nil,
@@ -155,10 +248,20 @@ final class BatteryCareMonitor {
             BatteryTelemetry.current()
         }.value
 
-        let competing = await Task.detached(priority: .utility) {
+        async let competingTask = Task.detached(priority: .utility) {
             CompetingBatteryControllerProbe.detect()
         }.value
+        async let firmwareTask = Task.detached(priority: .utility) {
+            FirmwareVersionProbe.current()
+        }.value
+
+        let competing = await competingTask
+        let firmware = await firmwareTask
         competingController = competing
+        firmwareVersion = firmware
+        directSMCWriteDisposition = BatteryFirmwarePolicy.directSMCWriteDisposition(
+            firmwareVersion: firmware
+        )
 
         let report: SMCCapabilityReport
         if let capabilityReport {
@@ -178,13 +281,42 @@ final class BatteryCareMonitor {
             cycleCount: telemetry.cycleCount,
             capabilities: report.capabilities,
             hardwareControlEnabled: false,
-            controlStatus: competing.map {
-                "唯讀模式：偵測到 \($0) 正在控制電池，CatCleaner 不會與其他控制器同時寫入 SMC"
-            } ?? "唯讀模式：硬體控制 helper 尚未通過 M5 寫入／回滾驗證"
+            controlStatus: controlStatus(
+                competingController: competing,
+                firmwareVersion: firmware,
+                disposition: directSMCWriteDisposition
+            )
         )
     }
 
     var capabilitySummary: String {
         capabilityReport?.summary ?? "尚未探測"
+    }
+
+    private func controlStatus(
+        competingController: String?,
+        firmwareVersion: String?,
+        disposition: DirectSMCWriteDisposition
+    ) -> String {
+        var reasons: [String] = []
+
+        if let competingController {
+            reasons.append(
+                "偵測到 \(competingController) 正在控制電池，CatCleaner 不會與其他控制器同時寫入 SMC"
+            )
+        }
+
+        if disposition == .knownBlocked {
+            let version = firmwareVersion ?? "未知"
+            reasons.append(
+                "韌體 \(version) 屬 macOS 27 新限制範圍，第三方直接 SMC 寫入未支援"
+            )
+        }
+
+        if reasons.isEmpty {
+            reasons.append("硬體控制 helper 尚未通過寫入／readback／rollback 驗證")
+        }
+
+        return "唯讀模式：" + reasons.joined(separator: "；")
     }
 }

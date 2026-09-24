@@ -35,4 +35,42 @@ final class BatterySMCCapabilityTests: XCTestCase {
         XCTAssertEqual(report.controlFamily, "macOS 27 韌體充電上限")
         XCTAssertTrue(report.capabilities.contains(.chargeLimit))
     }
+
+    func testFirmwareVersionComparisonPadsMissingComponents() throws {
+        let current = try XCTUnwrap(FirmwareVersion("mBoot-20457.1.29"))
+        let blockedSince = try XCTUnwrap(FirmwareVersion("20457.0.125.0.2"))
+        let older = try XCTUnwrap(FirmwareVersion("20457.0.77.0.2"))
+
+        XCTAssertGreaterThan(current, blockedSince)
+        XCTAssertLessThan(older, blockedSince)
+        XCTAssertEqual(
+            FirmwareVersion("20457.1"),
+            FirmwareVersion("20457.1.0.0")
+        )
+    }
+
+    func testKnownMacOS27FirmwareIsBlockedForDirectSMCWrites() {
+        XCTAssertEqual(
+            BatteryFirmwarePolicy.directSMCWriteDisposition(
+                firmwareVersion: "mBoot-20457.1.29"
+            ),
+            .knownBlocked
+        )
+        XCTAssertEqual(
+            BatteryFirmwarePolicy.directSMCWriteDisposition(
+                firmwareVersion: "20457.0.125.0.2"
+            ),
+            .knownBlocked
+        )
+        XCTAssertEqual(
+            BatteryFirmwarePolicy.directSMCWriteDisposition(
+                firmwareVersion: "20457.0.77.0.2"
+            ),
+            .candidate
+        )
+        XCTAssertEqual(
+            BatteryFirmwarePolicy.directSMCWriteDisposition(firmwareVersion: nil),
+            .unknown
+        )
+    }
 }
