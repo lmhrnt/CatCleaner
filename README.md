@@ -120,7 +120,7 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 - Xcode 27.0 app/tests preflight：PASS
 - XCTest：目前 source 359 個 `MacCleanTests` 與 600 個 `MacCleanKitTests`（1 skipped）皆 0 failure
 
-完整 App build / XCTest 由 `./scripts/xcode-qualification.sh --full` 對目前乾淨 HEAD/tree 執行。full mode 會先移除 `.build/out` 的舊 SwiftPM compiled products，避免 stale XCTest binary 被誤當成目前 source 的結果；全部通過後產生 `.build/qualification/xcode-qualification-v1.json`。
+完整 App build / XCTest 由 `./scripts/xcode-qualification.sh --full` 對目前乾淨 HEAD/tree 執行。full mode 會先移除 `.build/out` 的舊 SwiftPM compiled products，避免 stale XCTest binary 被誤當成目前 source 的結果；全部通過後會把已驗證的 universal `CatCleaner.app` 封存在 `.build/qualification/CatCleaner.app`，並產生 `.build/qualification/xcode-qualification-v1.json`。後續本機 native rebuild 不會覆蓋這份 qualification snapshot。
 
 CatCleaner 目前的主要使用目標是**本機自用 App**，不要求付費 Apple Developer Program、Developer ID、notarization、App Store 或 GitHub Release：
 

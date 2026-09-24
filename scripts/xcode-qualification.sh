@@ -103,6 +103,16 @@ else
 fi
 if [[ "$MODE" == "--full" ]]; then
   echo
+  echo "== qualification artifact snapshot =="
+  receipt_dir=".build/qualification"
+  snapshot_app="$receipt_dir/CatCleaner.app"
+  mkdir -p "$receipt_dir"
+  rm -rf "$snapshot_app"
+  ditto ".build/dmg/CatCleaner.app" "$snapshot_app"
+  codesign --verify --deep --strict "$snapshot_app"
+  echo "snapshot_app=$snapshot_app"
+
+  echo
   echo "== qualification receipt =="
   python3 - <<'PY'
 import hashlib
@@ -128,10 +138,11 @@ def sha256(path):
             digest.update(chunk)
     return digest.hexdigest()
 
-main_exe = root / ".build/dmg/CatCleaner.app/Contents/MacOS/MacClean"
+snapshot_app = root / ".build/qualification/CatCleaner.app"
+main_exe = snapshot_app / "Contents/MacOS/MacClean"
 menu_exe = (
-    root
-    / ".build/dmg/CatCleaner.app/Contents/Library/LoginItems/MacCleanMenu.app/Contents/MacOS/MacCleanMenu"
+    snapshot_app
+    / "Contents/Library/LoginItems/MacCleanMenu.app/Contents/MacOS/MacCleanMenu"
 )
 
 receipt = {
@@ -148,6 +159,7 @@ receipt = {
         text=True,
     ).strip().splitlines(),
     "app_version": (root / "VERSION").read_text(encoding="utf-8").strip(),
+    "artifact_app": ".build/qualification/CatCleaner.app",
     "main_sha256": sha256(main_exe),
     "menu_sha256": sha256(menu_exe),
 }

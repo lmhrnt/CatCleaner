@@ -25,8 +25,10 @@ else
   pass git_worktree "$(git rev-parse --short=12 HEAD)"
 fi
 
-if "$SCRIPT_DIR/check-xcode-qualification.py" >/dev/null 2>&1; then
-  pass xcode_qualification "full Xcode receipt matches current HEAD/tree"
+developer_dir="$("$SCRIPT_DIR/resolve-xcode.sh" 2>/dev/null || true)"
+if [[ -n "$developer_dir" ]] &&
+   python3 "$SCRIPT_DIR/check-xcode-qualification.py"      --developer-dir "$developer_dir" >/dev/null 2>&1; then
+  pass xcode_qualification "full Xcode receipt + immutable app snapshot match current HEAD/tree"
 else
   block xcode_qualification "run ./scripts/xcode-qualification.sh --full on this exact clean source"
 fi

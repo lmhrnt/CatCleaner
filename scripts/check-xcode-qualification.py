@@ -13,10 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RECEIPT = ROOT / ".build/qualification/xcode-qualification-v1.json"
-MAIN_EXE = ROOT / ".build/dmg/CatCleaner.app/Contents/MacOS/MacClean"
+QUALIFIED_APP = ROOT / ".build/qualification/CatCleaner.app"
+MAIN_EXE = QUALIFIED_APP / "Contents/MacOS/MacClean"
 MENU_EXE = (
-    ROOT
-    / ".build/dmg/CatCleaner.app/Contents/Library/LoginItems/MacCleanMenu.app/Contents/MacOS/MacCleanMenu"
+    QUALIFIED_APP
+    / "Contents/Library/LoginItems/MacCleanMenu.app/Contents/MacOS/MacCleanMenu"
 )
 
 
@@ -70,6 +71,8 @@ def main() -> int:
         fail("unexpected receipt schema")
     if receipt.get("mode") != "full":
         fail("receipt is not from --full qualification")
+    if receipt.get("artifact_app") != ".build/qualification/CatCleaner.app":
+        fail("receipt does not bind the immutable qualification app snapshot")
 
     if run("git", "status", "--porcelain"):
         fail("Git working tree is not clean")

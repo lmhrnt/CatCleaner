@@ -91,11 +91,14 @@ With full Xcode available, run the one-shot qualification first:
 ./scripts/xcode-qualification.sh --full
 ```
 
-The full mode requires a clean Git working tree and binds the current HEAD/tree, exact Xcode version, and built app binary SHA-256 values into:
+The full mode requires a clean Git working tree and binds the current HEAD/tree, exact Xcode version, and built app binary SHA-256 values into an immutable local qualification snapshot:
 
 ```text
+.build/qualification/CatCleaner.app
 .build/qualification/xcode-qualification-v1.json
 ```
+
+The receipt validates the snapshot rather than `.build/dmg/CatCleaner.app`, so later native dev installs cannot overwrite the authoritative universal-build evidence.
 
 For a faster native-architecture development check without producing an authoritative receipt:
 
