@@ -56,7 +56,7 @@ python3 scripts/developer-id-qualification.py --qualify
 
 The origin qualifier is read-only: it never creates a repository, changes a remote, or pushes. It requires the origin fetch/push URLs to target the same GitHub `CatCleaner` repository, GitHub `ADMIN` permission, and the remote default-branch HEAD to equal local `HEAD`.
 
-The Developer ID qualifier is also read-only. It requires one eligible non-upstream `Developer ID Application` identity, validates certificate fingerprint, Team ID and validity window, and binds them to the exact source. It does not use a local private-key signing probe because non-interactive Keychain ACLs can reject otherwise valid identities; actual Developer ID signing is exercised by the signing/release workflows with an ephemeral CI Keychain.
+The Developer ID qualifier is also read-only. It requires at least one eligible non-upstream `Developer ID Application` identity; if several exist, set `CATCLEANER_DEVELOPER_ID` (and optionally `CATCLEANER_TEAM_ID`) for the one-time `--qualify` selection. The receipt then pins that exact identity, certificate fingerprint, Team ID and validity window to the source, so later `--check` is unambiguous even if more identities are added. It does not use a local private-key signing probe because non-interactive Keychain ACLs can reject otherwise valid identities; actual Developer ID signing is exercised by the signing/release workflows with an ephemeral CI Keychain.
 
 ## Never reuse upstream identity
 

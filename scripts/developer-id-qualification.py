@@ -2,8 +2,8 @@
 """Qualify and validate CatCleaner's local Developer ID Application identity.
 
 Modes:
-  --local    Require exactly one eligible non-upstream Developer ID identity.
-  --qualify  Bind that identity/certificate/team/validity to the current clean source.
+  --local    Require at least one eligible non-upstream Developer ID identity.
+  --qualify  Select one identity (explicitly if ambiguous) and bind its certificate/team/validity to the current clean source.
   --check    Validate the existing receipt against the current source and Keychain.
 
 This tool never imports, deletes, or changes certificates/keys. It deliberately
@@ -95,10 +95,22 @@ def eligible_identities() -> list[dict[str, str]]:
     return result
 
 
-def choose_identity() -> dict[str, str]:
+def choose_identity(
+    *,
+    preferred_identity: str | None = None,
+    preferred_team: str | None = None,
+) -> dict[str, str]:
     candidates = eligible_identities()
-    requested_identity = os.environ.get("CATCLEANER_DEVELOPER_ID", "").strip()
-    requested_team = os.environ.get("CATCLEANER_TEAM_ID", "").strip()
+    requested_identity = (
+        preferred_identity
+        if preferred_identity is not None
+        else os.environ.get("CATCLEANER_DEVELOPER_ID", "").strip()
+    )
+    requested_team = (
+        preferred_team
+        if preferred_team is not None
+        else os.environ.get("CATCLEANER_TEAM_ID", "").strip()
+    )
 
     if requested_identity:
         candidates = [
@@ -231,8 +243,15 @@ def certificate_details(identity: dict[str, str]) -> dict[str, str]:
     }
 
 
-def local_state() -> dict[str, str]:
-    identity = choose_identity()
+def local_state(
+    *,
+    preferred_identity: str | None = None,
+    preferred_team: str | None = None,
+) -> dict[str, str]:
+    identity = choose_identity(
+        preferred_identity=preferred_identity,
+        preferred_team=preferred_team,
+    )
     cert = certificate_details(identity)
     return {**identity, **cert}
 
@@ -275,7 +294,10 @@ def check_receipt() -> None:
     if receipt.get("head") != head or receipt.get("tree") != tree:
         fail("Developer ID qualification receipt does not match current HEAD/tree")
 
-    current = local_state()
+    current = local_state(
+        preferred_identity=str(receipt.get("identity", "")),
+        preferred_team=str(receipt.get("team_id", "")),
+    )
     for field in (
         "identity_sha1",
         "identity",
@@ -312,11 +334,16 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.local:
-        state = local_state()
+        candidates = eligible_identities()
+        if not candidates:
+            fail("no eligible Developer ID Application identity found in Keychain", 78)
         print("CATCLEANER_DEVELOPER_ID_LOCAL_PASS")
-        print(f"identity={state['identity']}")
-        print(f"team_id={state['team_id']}")
-        print(f"cert_sha256={state['cert_sha256']}")
+        print(f"eligible_count={len(candidates)}")
+        if len(candidates) == 1:
+            print(f"identity={candidates[0]['identity']}")
+            print(f"team_id={candidates[0]['team_id']}")
+        else:
+            print("selection=qualification_receipt_or_CATCLEANER_DEVELOPER_ID_required")
         return 0
     if args.qualify:
         qualify()

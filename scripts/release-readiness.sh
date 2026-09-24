@@ -125,8 +125,8 @@ developer_local="$(python3 -B scripts/developer-id-qualification.py --local 2>/d
 developer_local_rc=$?
 set -e
 if [[ $developer_local_rc -eq 0 ]]; then
-  developer_id="$(printf '%s\n' "$developer_local" | sed -n 's/^identity=//p' | head -1)"
-  pass "developer_id" "$developer_id"
+  developer_count="$(printf '%s\n' "$developer_local" | sed -n 's/^eligible_count=//p' | head -1)"
+  pass "developer_id" "eligible non-upstream Developer ID identity present; count=${developer_count:-unknown}"
   if python3 -B scripts/developer-id-qualification.py --check >/dev/null 2>&1; then
     pass "developer_id_qualification" "certificate/Team ID receipt matches current HEAD/tree and Keychain"
   else

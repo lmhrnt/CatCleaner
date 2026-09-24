@@ -89,6 +89,29 @@ def main() -> int:
     assert subject_team is not None
     assert subject_team.group(1) == "ABCDE12345"
 
+    original_eligible = developer.eligible_identities
+    try:
+        developer.eligible_identities = lambda: [
+            {
+                "identity_sha1": "A" * 40,
+                "identity": "Developer ID Application: Owner A (AAAAA12345)",
+                "team_id": "AAAAA12345",
+            },
+            {
+                "identity_sha1": "B" * 40,
+                "identity": "Developer ID Application: Owner B (BBBBB12345)",
+                "team_id": "BBBBB12345",
+            },
+        ]
+        selected = developer.choose_identity(
+            preferred_identity="Developer ID Application: Owner B (BBBBB12345)",
+            preferred_team="BBBBB12345",
+        )
+        assert selected["identity_sha1"] == "B" * 40
+        assert selected["team_id"] == "BBBBB12345"
+    finally:
+        developer.eligible_identities = original_eligible
+
     require_text(
         "scripts/release-readiness.sh",
         (
