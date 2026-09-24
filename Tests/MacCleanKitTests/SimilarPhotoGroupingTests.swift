@@ -105,6 +105,7 @@ final class SimilarPhotoGroupingTests: XCTestCase {
             pairs: [
                 pair(a, b, 0.10),
                 pair(a, c, 0.20),
+                pair(b, c, 0.18),
                 pair(x, y, 0.05),
             ],
             maximumDistance: 0.30

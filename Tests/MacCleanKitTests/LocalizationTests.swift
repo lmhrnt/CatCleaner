@@ -129,7 +129,7 @@ final class LocalizationTests: AppLanguageTestCase {
         XCTAssertEqual(ScanCategory.userCaches.displayName, "Кэш пользователя")
         XCTAssertEqual(
             ScanCategory.userCaches.subtitle,
-            "Временные файлы приложений. Будут созданы заново при следующем запуске."
+            "Временные файлы приложений обычно восстанавливаемы. Общий сканер кэша не может надёжно подтвердить, что приложение-владелец не используется, поэтому по умолчанию требуется ручная проверка."
         )
     }
 

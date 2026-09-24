@@ -90,9 +90,15 @@ final class ScanResultTests: XCTestCase {
         XCTAssertEqual(r.fileCount, 0)
     }
 
-    func testAutoSelectDefault() {
-        let r = ScanResult(category: .userCaches, items: [])
-        XCTAssertTrue(r.autoSelect)
+    func testAutoSelectDefaultUsesCategoryPolicy() {
+        XCTAssertFalse(
+            ScanResult(category: .userCaches, items: []).autoSelect,
+            "generic caches are review-only because owner inactivity is not provable"
+        )
+        XCTAssertTrue(
+            ScanResult(category: .userLogs, items: []).autoSelect,
+            "narrow low-risk log cleanup remains preselected"
+        )
     }
 
     func testAutoSelectOverridable() {
@@ -202,8 +208,6 @@ final class ScanCategoryEnumTests: XCTestCase {
 
     func testAutoSelectPolicyIsExplicitAndFailClosed() {
         let autoSelected: Set<ScanCategory> = [
-            .userCaches,
-            .systemCaches,
             .userLogs,
             .systemLogs,
             .brokenDownloads,
@@ -212,6 +216,8 @@ final class ScanCategoryEnumTests: XCTestCase {
         ]
 
         let reviewOnly: Set<ScanCategory> = [
+            .userCaches,
+            .systemCaches,
             .languageFiles,
             .brokenPreferences,
             .brokenLoginItems,
@@ -247,8 +253,11 @@ final class ScanCategoryEnumTests: XCTestCase {
     }
 
     func testScanResultUsesCategoryPolicyWhenOverrideIsOmitted() {
-        XCTAssertTrue(
+        XCTAssertFalse(
             ScanResult(category: .userCaches, items: []).autoSelect
+        )
+        XCTAssertTrue(
+            ScanResult(category: .userLogs, items: []).autoSelect
         )
         XCTAssertFalse(
             ScanResult(category: .malware, items: []).autoSelect

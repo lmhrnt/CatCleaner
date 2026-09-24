@@ -20,15 +20,17 @@ final class ReadmeTelemetrySectionTests: XCTestCase {
             "\(fileName) must include heading «\(headingNeedle)» (issue #1)"
         )
         XCTAssertTrue(
-            src.contains("lsof") || src.contains("URLSession"),
+            src.contains("lsof")
+                || src.contains("URLSession")
+                || src.contains("scripts/check-network-surface.py"),
             "\(fileName) telemetry section must include a copy-pasteable verification command"
         )
     }
 
-    func testEnglishReadmeHasVerifyNoTelemetrySection() throws {
+    func testMainReadmeHasVerifyNoTelemetrySection() throws {
         try assertTelemetrySection(
             in: "README.md",
-            headingNeedle: "Verify no telemetry yourself"
+            headingNeedle: "自行驗證無遙測"
         )
     }
 

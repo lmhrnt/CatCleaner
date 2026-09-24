@@ -1,6 +1,6 @@
 import XCTest
 @testable import MacClean
-import MacCleanKit
+@testable import MacCleanKit
 import MacCleanTestSupport
 
 /// Walks a synthetic `.app` bundle in /tmp to verify the scanner correctly
@@ -209,7 +209,8 @@ final class UniversalBinariesScannerTests: XCTestCase {
         let result = await CleanActions.executeUserClean(
             results: [ScanResult(category: .universalBinaries, items: items, autoSelect: false)],
             selectedItems: [item.url],
-            engine: CleaningEngine()
+            engine: CleaningEngine(),
+            thinOperation: ThinAppBundleOperation(allowedRoots: [root])
         )
 
         XCTAssertEqual(result.removedCount, 1)

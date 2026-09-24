@@ -17,10 +17,10 @@ final class AppDiscoverySmokeTests: XCTestCase {
         let apps = await AppDiscovery().discoverApps()
         guard apps.count >= 2 else { return }
         for i in 1..<apps.count {
-            XCTAssertLessThanOrEqual(
-                apps[i-1].name.lowercased(),
-                apps[i].name.lowercased(),
-                "Apps should be sorted alphabetically"
+            XCTAssertNotEqual(
+                apps[i-1].name.localizedCaseInsensitiveCompare(apps[i].name),
+                .orderedDescending,
+                "Apps should use the same locale-aware case-insensitive ordering as AppDiscovery"
             )
         }
     }

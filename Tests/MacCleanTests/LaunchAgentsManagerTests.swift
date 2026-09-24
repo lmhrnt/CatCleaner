@@ -5,7 +5,7 @@ import Foundation
 import MacCleanTestSupport
 
 final class LaunchAgentsManagerTests: XCTestCase {
-    func testToggleFlipsDisabledKeyInPlist() async throws {
+    func testToggleRejectsPlistOutsideUserLaunchAgents() async throws {
         try await TestFixtures.withTempDir { dir in
             let plistURL = dir.appending(path: "com.example.zoom.plist")
             let plist: [String: Any] = ["Label": "com.example.zoom", "Disabled": false]
@@ -16,12 +16,20 @@ final class LaunchAgentsManagerTests: XCTestCase {
                 label: "com.example.zoom", path: plistURL,
                 program: "/Applications/zoom.us.app", isSystem: false, isEnabled: true
             )
-            let mgr = LaunchAgentsManager()
-            try mgr.toggleAgent(agent, enabled: false)
 
+            XCTAssertThrowsError(
+                try LaunchAgentsManager().toggleAgent(agent, enabled: false)
+            ) { error in
+                guard case LaunchAgentsManager.ToggleError.unreadablePlist = error else {
+                    return XCTFail("temporary plist outside ~/Library/LaunchAgents must fail closed: \(error)")
+                }
+            }
+
+            // The safety gate must fail before changing either the plist or
+            // launchd state.
             let after = try PropertyListSerialization.propertyList(
                 from: Data(contentsOf: plistURL), format: nil) as! [String: Any]
-            XCTAssertEqual(after["Disabled"] as? Bool, true)
+            XCTAssertEqual(after["Disabled"] as? Bool, false)
         }
     }
 

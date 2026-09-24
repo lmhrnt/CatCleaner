@@ -40,6 +40,26 @@ public enum CleanActions {
         engine: CleaningEngine,
         onProgress: (@Sendable (CleaningEngine.Progress) -> Void)? = nil
     ) async -> CleaningEngine.CleanResult {
+        await executeUserClean(
+            results: results,
+            selectedItems: selectedItems,
+            engine: engine,
+            thinOperation: ThinAppBundleOperation(),
+            onProgress: onProgress
+        )
+    }
+
+    /// Internal injection seam for tests. Production callers always use the
+    /// public overload above, whose ThinAppBundleOperation is permanently
+    /// scoped to /Applications and ~/Applications.
+    @discardableResult
+    static func executeUserClean(
+        results: [ScanResult],
+        selectedItems: Set<URL>,
+        engine: CleaningEngine,
+        thinOperation: ThinAppBundleOperation,
+        onProgress: (@Sendable (CleaningEngine.Progress) -> Void)? = nil
+    ) async -> CleaningEngine.CleanResult {
         var trashItems: [FileItem] = []
         var permanentItems: [FileItem] = []
         var thinItems: [FileItem] = []
@@ -91,7 +111,10 @@ public enum CleanActions {
             )
         }
 
-        let thinResult = await thinSelectedBinaries(thinItems)
+        let thinResult = await thinSelectedBinaries(
+            thinItems,
+            operation: thinOperation
+        )
         return CleaningEngine.CleanResult(
             removedCount: trashResult.removedCount + permanentResult.removedCount + thinResult.removedCount,
             freedBytes: trashResult.freedBytes + permanentResult.freedBytes + thinResult.freedBytes,
@@ -108,7 +131,8 @@ public enum CleanActions {
     /// `CleaningEngine.CleanResult` so the caller's "X items, Y MB freed"
     /// UI summary keeps working uniformly.
     private static func thinSelectedBinaries(
-        _ items: [FileItem]
+        _ items: [FileItem],
+        operation: ThinAppBundleOperation
     ) async -> CleaningEngine.CleanResult {
         guard !items.isEmpty else {
             return CleaningEngine.CleanResult(
@@ -116,7 +140,6 @@ public enum CleanActions {
                 errors: [], skippedCount: 0
             )
         }
-        let op = ThinAppBundleOperation()
         let host = BundleHostInfo.current
         let targetArch = host.hostArch
         let policy = UniversalBinariesPolicy()
@@ -143,7 +166,7 @@ public enum CleanActions {
             }
 
             do {
-                let r = try await op.thin(bundle: item.url, to: targetArch)
+                let r = try await operation.thin(bundle: item.url, to: targetArch)
                 if r.binariesThinned > 0 {
                     bundleCount += 1
                 }
