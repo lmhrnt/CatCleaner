@@ -12,6 +12,8 @@ cd "$ROOT"
 APP="/Applications/CatCleaner.app"
 MAIN="$APP/Contents/MacOS/MacClean"
 MENU="$APP/Contents/Library/LoginItems/MacCleanMenu.app/Contents/MacOS/MacCleanMenu"
+BATTERY_HELPER="$APP/Contents/MacOS/CatCleanerBatteryHelper"
+BATTERY_PLIST="$APP/Contents/Library/LaunchDaemons/com.catcleaner.battery-helper.plist"
 EXPECTED_IDENTITY="CatCleaner Local Code Signing"
 
 failures=0
@@ -39,10 +41,10 @@ else
   block local_signing_identity "CatCleaner local code-signing identity unavailable"
 fi
 
-if [[ -d "$APP" && -x "$MAIN" && -x "$MENU" ]]; then
-  pass installed_app "$APP"
+if [[ -d "$APP" && -x "$MAIN" && -x "$MENU" && -x "$BATTERY_HELPER" && -f "$BATTERY_PLIST" ]]; then
+  pass installed_app "$APP + menu helper + battery daemon"
 else
-  block installed_app "expected installed app/helper missing"
+  block installed_app "expected installed app/menu/battery helper missing"
 fi
 
 if [[ -d "$APP" ]]; then
@@ -62,25 +64,29 @@ if [[ -d "$APP" ]]; then
     block app_version "installed=${version:-missing} source=$expected_version"
   fi
 
-  if codesign --verify --deep --strict "$APP" >/dev/null 2>&1; then
+  if codesign --verify --deep --strict "$APP" >/dev/null 2>&1 &&
+     codesign --verify --strict "$BATTERY_HELPER" >/dev/null 2>&1; then
     authority="$(codesign -dv --verbose=4 "$APP" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
-    if [[ "$authority" == "$EXPECTED_IDENTITY" ]]; then
-      pass codesign "$authority"
+    helper_authority="$(codesign -dv --verbose=4 "$BATTERY_HELPER" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
+    if [[ "$authority" == "$EXPECTED_IDENTITY" && "$helper_authority" == "$EXPECTED_IDENTITY" ]]; then
+      pass codesign "app=$authority battery_helper=$helper_authority"
     else
-      block codesign "unexpected authority: ${authority:-none}"
+      block codesign "app=${authority:-none} battery_helper=${helper_authority:-none}"
     fi
   else
-    block codesign "codesign --verify --deep --strict failed"
+    block codesign "app or battery helper codesign verification failed"
   fi
 
   native_arch="$(uname -m)"
   main_archs="$(lipo -archs "$MAIN" 2>/dev/null || true)"
   menu_archs="$(lipo -archs "$MENU" 2>/dev/null || true)"
+  helper_archs="$(lipo -archs "$BATTERY_HELPER" 2>/dev/null || true)"
   if grep -Eq "(^| )$native_arch( |$)" <<<"$main_archs" &&
-     grep -Eq "(^| )$native_arch( |$)" <<<"$menu_archs"; then
-    pass native_architecture "main=[$main_archs] menu=[$menu_archs]"
+     grep -Eq "(^| )$native_arch( |$)" <<<"$menu_archs" &&
+     grep -Eq "(^| )$native_arch( |$)" <<<"$helper_archs"; then
+    pass native_architecture "main=[$main_archs] menu=[$menu_archs] battery_helper=[$helper_archs]"
   else
-    block native_architecture "native=$native_arch main=[$main_archs] menu=[$menu_archs]"
+    block native_architecture "native=$native_arch main=[$main_archs] menu=[$menu_archs] battery_helper=[$helper_archs]"
   fi
 
   if xattr -p com.apple.quarantine "$APP" >/dev/null 2>&1; then

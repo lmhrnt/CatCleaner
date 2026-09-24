@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .executable(name: "MacClean", targets: ["MacClean"]),
         .executable(name: "MacCleanMenu", targets: ["MacCleanMenu"]),
+        .executable(name: "CatCleanerBatteryHelper", targets: ["CatCleanerBatteryHelper"]),
         .library(name: "MacCleanKit", targets: ["MacCleanKit"]),
     ],
     dependencies: [
@@ -28,6 +29,11 @@ let package = Package(
             name: "MacCleanMenu",
             dependencies: ["MacCleanKit"],
             path: "Sources/MacCleanMenu"
+        ),
+        .executableTarget(
+            name: "CatCleanerBatteryHelper",
+            dependencies: ["MacCleanKit"],
+            path: "Sources/CatCleanerBatteryHelper"
         ),
         .target(
             name: "MacCleanKit",

@@ -26,8 +26,10 @@ APP=".build/dmg/CatCleaner.app"
 MENU="$APP/Contents/Library/LoginItems/MacCleanMenu.app"
 MAIN_EXE="$APP/Contents/MacOS/MacClean"
 MENU_EXE="$MENU/Contents/MacOS/MacCleanMenu"
+BATTERY_HELPER="$APP/Contents/MacOS/CatCleanerBatteryHelper"
+BATTERY_PLIST="$APP/Contents/Library/LaunchDaemons/com.catcleaner.battery-helper.plist"
 
-for path in "$APP" "$MENU" "$MAIN_EXE" "$MENU_EXE"; do
+for path in "$APP" "$MENU" "$MAIN_EXE" "$MENU_EXE" "$BATTERY_HELPER" "$BATTERY_PLIST"; do
   [[ -e "$path" ]] || {
     echo "ERROR: expected app artifact missing: $path" >&2
     exit 1
@@ -58,10 +60,23 @@ source_version="$(tr -d '[:space:]' < VERSION)"
   exit 1
 }
 
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :Label' "$BATTERY_PLIST")" == "com.catcleaner.battery-helper" ]] || {
+  echo "ERROR: unexpected battery helper launchd label" >&2
+  exit 1
+}
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :BundleProgram' "$BATTERY_PLIST")" == "Contents/MacOS/CatCleanerBatteryHelper" ]] || {
+  echo "ERROR: unexpected battery helper BundleProgram" >&2
+  exit 1
+}
+/usr/libexec/PlistBuddy -c 'Print :MachServices:com.catcleaner.battery-helper' "$BATTERY_PLIST" |
+  grep -Fx 'true' >/dev/null
+
+codesign --verify --strict "$BATTERY_HELPER"
 codesign --verify --deep --strict "$APP"
 
 main_archs="$(lipo -archs "$MAIN_EXE")"
 menu_archs="$(lipo -archs "$MENU_EXE")"
+helper_archs="$(lipo -archs "$BATTERY_HELPER")"
 
 case "$MODE" in
   --native)
@@ -74,6 +89,10 @@ case "$MODE" in
       echo "ERROR: menu executable missing native arch $native_arch: $menu_archs" >&2
       exit 1
     }
+    grep -Eq "(^| )${native_arch}( |$)" <<<"$helper_archs" || {
+      echo "ERROR: battery helper missing native arch $native_arch: $helper_archs" >&2
+      exit 1
+    }
     ;;
   --universal)
     for arch in arm64 x86_64; do
@@ -83,6 +102,10 @@ case "$MODE" in
       }
       grep -Eq "(^| )${arch}( |$)" <<<"$menu_archs" || {
         echo "ERROR: menu executable missing $arch: $menu_archs" >&2
+        exit 1
+      }
+      grep -Eq "(^| )${arch}( |$)" <<<"$helper_archs" || {
+        echo "ERROR: battery helper missing $arch: $helper_archs" >&2
         exit 1
       }
     done
@@ -101,4 +124,5 @@ echo "CATCLEANER_APP_BUNDLE_VERIFY_PASS mode=$MODE"
 echo "app_version=$app_version"
 echo "main_archs=$main_archs"
 echo "menu_archs=$menu_archs"
+echo "battery_helper_archs=$helper_archs"
 echo "codesign=PASS"

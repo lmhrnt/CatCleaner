@@ -1,8 +1,10 @@
 import SwiftUI
+import ServiceManagement
 import MacCleanKit
 
 struct BatteryCareView: View {
     @State private var monitor = BatteryCareMonitor()
+    @State private var helperManager = BatteryHardwareHelperManager.shared
 
     @AppStorage(BatteryCarePreferences.chargeLimitKey, store: SharedAppState.defaults) private var chargeLimit = 80
     @AppStorage(BatteryCarePreferences.automaticDischargeKey, store: SharedAppState.defaults) private var automaticDischarge = true
@@ -32,10 +34,14 @@ struct BatteryCareView: View {
             .frame(maxWidth: 920, alignment: .leading)
         }
         .task {
-            await monitor.refresh()
+            async let monitorRefresh: Void = monitor.refresh()
+            async let helperRefresh: Void = helperManager.refresh()
+            _ = await (monitorRefresh, helperRefresh)
         }
         .refreshable {
-            await monitor.refresh()
+            async let monitorRefresh: Void = monitor.refresh()
+            async let helperRefresh: Void = helperManager.refresh()
+            _ = await (monitorRefresh, helperRefresh)
         }
         .alert(
             "硬體控制尚未啟用",
@@ -154,11 +160,90 @@ struct BatteryCareView: View {
                         )
                         .font(.caption.weight(.semibold))
                     }
+
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    HStack {
+                        Text("CatCleaner 特權 helper")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Text(helperManager.statusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text(helperManager.helperStatusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if let lastProbeMessage = helperManager.lastProbeMessage {
+                        Label(
+                            lastProbeMessage,
+                            systemImage: helperManager.lastProbePassed
+                                ? "checkmark.shield.fill"
+                                : "xmark.shield"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(helperManager.lastProbePassed ? .green : .orange)
+                    }
+
+                    helperControlButtons
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label("安全狀態", systemImage: "shield.checkered")
+        }
+    }
+
+    @ViewBuilder
+    private var helperControlButtons: some View {
+        HStack(spacing: 8) {
+            switch helperManager.status {
+            case .notRegistered, .notFound:
+                Button("註冊硬體 helper") {
+                    Task { await helperManager.register() }
+                }
+
+            case .requiresApproval:
+                Button("開啟背景項目設定") {
+                    helperManager.openApprovalSettings()
+                }
+                Button("重新檢查") {
+                    Task { await helperManager.refresh() }
+                }
+
+            case .enabled:
+                Button("重新檢查 helper") {
+                    Task { await helperManager.refresh() }
+                }
+                Button("零變更寫入測試") {
+                    Task { await helperManager.probeSameValueWrite() }
+                }
+                .disabled(monitor.competingController != nil)
+
+                Button("停用 helper", role: .destructive) {
+                    Task { await helperManager.unregister() }
+                }
+
+            @unknown default:
+                Button("重新檢查") {
+                    Task { await helperManager.refresh() }
+                }
+            }
+
+            if helperManager.isBusy {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .disabled(helperManager.isBusy)
+
+        if monitor.competingController != nil, helperManager.status == .enabled {
+            Text("零變更寫入測試目前停用：先結束其他電池控制器，CatCleaner 才會允許 helper 寫入探針。")
+                .font(.caption)
+                .foregroundStyle(.orange)
         }
     }
 

@@ -111,6 +111,9 @@ from pathlib import Path
 required_files = [
     "Sources/MacCleanKit/BatteryCare.swift",
     "Sources/MacCleanKit/BatteryTelemetry.swift",
+    "Sources/MacCleanKit/BatteryHelperXPC.swift",
+    "Sources/CatCleanerBatteryHelper/main.swift",
+    "Sources/MacClean/Services/BatteryHardwareHelperManager.swift",
     "Sources/MacClean/Modules/BatteryCare/BatteryCareMonitor.swift",
     "Sources/MacClean/Views/Battery/BatteryCareView.swift",
     "Sources/MacClean/App/BatteryCareIntents.swift",
@@ -133,6 +136,14 @@ checks = {
     "m5_capability": (
         "Sources/MacClean/Modules/BatteryCare/BatteryCareMonitor.swift",
         ["CHTE", "CHIE", "ACLC", "CompetingBatteryControllerProbe"],
+    ),
+    "battery_helper_xpc": (
+        "Sources/CatCleanerBatteryHelper/main.swift",
+        ["SigningPeerValidator", "probeSameValueWrite", "fixedProbeKey", "CompetingController.isRunning"],
+    ),
+    "battery_helper_bundle": (
+        "scripts/build-dmg.sh",
+        ["CatCleanerBatteryHelper", "Contents/Library/LaunchDaemons", "com.catcleaner.battery-helper"],
     ),
     "shortcuts": (
         "Sources/MacClean/App/BatteryCareIntents.swift",
@@ -159,7 +170,7 @@ if bad:
     print("ERROR|" + "; ".join(bad))
 else:
     print(
-        "OK|battery-care/read-only-hardware-gate + shortcuts + "
+        "OK|battery-care + signed privileged-helper probe + shortcuts + "
         "menu customization + cleaning-automation contracts present"
     )
 PYEXT

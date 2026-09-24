@@ -111,4 +111,14 @@ final class BatteryCareTests: XCTestCase {
         XCTAssertFalse(BatteryCareAction.menuBarCustomization.requiresHardwareWrite)
         XCTAssertFalse(BatteryCareAction.popupCustomization.requiresHardwareWrite)
     }
+
+    func testBatteryHelperProbeIsFixedToOneByteSameValueSemantics() {
+        XCTAssertEqual(BatteryHelperProbePolicy.fixedProbeKey, "CHIE")
+        XCTAssertEqual(BatteryHelperProbePolicy.normalizedHexByte("00"), "00")
+        XCTAssertEqual(BatteryHelperProbePolicy.normalizedHexByte("0x01"), "01")
+        XCTAssertNil(BatteryHelperProbePolicy.normalizedHexByte("0000"))
+        XCTAssertNil(BatteryHelperProbePolicy.normalizedHexByte("GG"))
+        XCTAssertTrue(BatteryHelperProbePolicy.isSameValueProbe(before: "00", after: "0x00"))
+        XCTAssertFalse(BatteryHelperProbePolicy.isSameValueProbe(before: "00", after: "01"))
+    }
 }

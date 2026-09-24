@@ -5,6 +5,9 @@ public enum MCConstants {
     public static let bundleIdentifier = "com.catcleaner.app"
     public static let helperBundleIdentifier = "com.catcleaner.helper"
     public static let menuBundleIdentifier = "com.catcleaner.menu"
+    public static let batteryHelperExecutableName = "CatCleanerBatteryHelper"
+    public static let batteryHelperMachServiceName = "com.catcleaner.battery-helper"
+    public static let batteryHelperLaunchDaemonPlistName = "com.catcleaner.battery-helper.plist"
 
     /// CatCleaner intentionally does not inherit the upstream project's Apple
     /// Developer Team ID. A downstream release must inject its own Team ID

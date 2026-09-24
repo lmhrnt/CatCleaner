@@ -132,17 +132,28 @@ sign_app() {
   unlock_keychain
 
   local menu="$APP_PATH/Contents/Library/LoginItems/MacCleanMenu.app"
+  local battery_helper="$APP_PATH/Contents/MacOS/CatCleanerBatteryHelper"
   local entitlements
   entitlements="$(cd "$(dirname "$0")/.." && pwd)/.build/entitlements.plist"
 
   [[ -d "$menu" ]] || die "nested menu app missing: $menu"
+  [[ -x "$battery_helper" ]] || die "battery helper missing: $battery_helper"
   [[ -f "$entitlements" ]] || die "entitlements missing: $entitlements"
+
+  codesign --force     --keychain "$KEYCHAIN"     --sign "$IDENTITY"     --timestamp=none     "$battery_helper"
 
   codesign --force     --keychain "$KEYCHAIN"     --sign "$IDENTITY"     --timestamp=none     "$menu"
 
   codesign --force     --keychain "$KEYCHAIN"     --entitlements "$entitlements"     --sign "$IDENTITY"     --timestamp=none     "$APP_PATH"
 
+  codesign --verify --strict "$battery_helper"
   codesign --verify --deep --strict "$APP_PATH"
+
+  local helper_authority
+  helper_authority="$(codesign -dv --verbose=4 "$battery_helper" 2>&1 |
+    sed -n 's/^Authority=//p' | head -1)"
+  [[ "$helper_authority" == "$IDENTITY" ]] ||
+    die "unexpected battery helper signing authority: ${helper_authority:-none}"
 
   local authority
   authority="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1 |

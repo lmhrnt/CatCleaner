@@ -70,6 +70,7 @@ BUILD_ARCHS="${BUILD_ARCHS:---arch arm64 --arch x86_64}"
 echo "[1/7] Building release binaries (${BUILD_ARCHS})..."
 swift build -c release ${BUILD_ARCHS} --product MacClean
 swift build -c release ${BUILD_ARCHS} --product MacCleanMenu
+swift build -c release ${BUILD_ARCHS} --product CatCleanerBatteryHelper
 BUILD_DIR=$(swift build -c release ${BUILD_ARCHS} --product MacClean --show-bin-path)
 echo "  → Binaries: ${BUILD_DIR}"
 
@@ -81,6 +82,26 @@ mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
 cp "${BUILD_DIR}/MacClean" "${APP_BUNDLE}/Contents/MacOS/"
+cp "${BUILD_DIR}/CatCleanerBatteryHelper" "${APP_BUNDLE}/Contents/MacOS/"
+
+mkdir -p "${APP_BUNDLE}/Contents/Library/LaunchDaemons"
+cat > "${APP_BUNDLE}/Contents/Library/LaunchDaemons/com.catcleaner.battery-helper.plist" << HELPER_PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.catcleaner.battery-helper</string>
+    <key>BundleProgram</key>
+    <string>Contents/MacOS/CatCleanerBatteryHelper</string>
+    <key>MachServices</key>
+    <dict>
+        <key>com.catcleaner.battery-helper</key>
+        <true/>
+    </dict>
+</dict>
+</plist>
+HELPER_PLIST
 
 cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
