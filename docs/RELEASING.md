@@ -17,7 +17,7 @@ Run the read-only readiness audit first:
 ./scripts/release-readiness.sh
 ```
 
-Exit code `0` means required public-release prerequisites are satisfied for the exact current clean source. Exit code `2` means the release remains on HOLD. Full Xcode must have a matching `--full` qualification receipt; merely installing Xcode is not sufficient. Optional distribution/branding items are reported separately as warnings.
+Exit code `0` means required public-release prerequisites are satisfied for the exact current clean source. Exit code `2` means the release remains on HOLD. Xcode, GitHub origin, and Developer ID each require a matching qualification receipt; merely installing/configuring the prerequisite is not sufficient. Optional distribution/branding items are reported separately as warnings.
 
 The following are deliberately fail-closed:
 
@@ -37,6 +37,26 @@ The following are deliberately fail-closed:
 The `upstream` Git remote is for fetching Mac Sai history only. Its push URL
 is intentionally set to an invalid destination in the local checkout so an
 accidental push fails closed.
+
+### Qualification receipts
+
+All authoritative receipts live under `.build/qualification/` and are ignored by Git. They bind an exact clean HEAD/tree to the prerequisite evidence:
+
+```bash
+# After full Xcode is installed:
+./scripts/xcode-qualification.sh --full
+
+# After a CatCleaner GitHub repo exists, is configured as origin, and this exact
+# HEAD has already been pushed to its default branch:
+python3 scripts/origin-qualification.py --qualify
+
+# After a CatCleaner Developer ID Application identity exists in Keychain:
+python3 scripts/developer-id-qualification.py --qualify
+```
+
+The origin qualifier is read-only: it never creates a repository, changes a remote, or pushes. It requires the origin fetch/push URLs to target the same GitHub `CatCleaner` repository, GitHub `ADMIN` permission, and the remote default-branch HEAD to equal local `HEAD`.
+
+The Developer ID qualifier is also read-only. It requires one eligible non-upstream `Developer ID Application` identity, validates certificate fingerprint, Team ID and validity window, and binds them to the exact source. It does not use a local private-key signing probe because non-interactive Keychain ACLs can reject otherwise valid identities; actual Developer ID signing is exercised by the signing/release workflows with an ephemeral CI Keychain.
 
 ## Never reuse upstream identity
 
@@ -95,10 +115,10 @@ The development bundle is not a public release and is not notarized.
 
 All of the following must be completed with **CatCleaner-owned** identities:
 
-1. Create the CatCleaner GitHub repository and add it as `origin`.
+1. Create the CatCleaner GitHub repository, add it as `origin`, push the exact release source to its default branch, then run `python3 scripts/origin-qualification.py --qualify`.
 2. Keep Mac Sai as `upstream` fetch-only.
 3. Create or select the CatCleaner Apple Developer signing team.
-4. Configure a CatCleaner Developer ID Application certificate.
+4. Configure a CatCleaner Developer ID Application certificate, then run `python3 scripts/developer-id-qualification.py --qualify`.
 5. Configure CatCleaner notarization credentials.
 6. Configure a CatCleaner notarytool Keychain profile.
 7. Set `MCConstants.teamIdentifier` to the CatCleaner Team ID only after the

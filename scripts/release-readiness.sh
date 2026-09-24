@@ -87,12 +87,24 @@ else
   info "xcode_qualification" "not evaluated until full Xcode is available"
 fi
 
-# 3. The product needs a CatCleaner-owned publication remote.
-origin_url="$(git remote get-url origin 2>/dev/null || true)"
-if [[ -n "$origin_url" ]] && [[ "$origin_url" != *"MacSai"* ]]; then
+# 3. The product needs a CatCleaner-owned publication remote. Presence alone
+# is not enough: once configured, a qualification receipt must prove GitHub
+# ADMIN permission and remote default-branch HEAD parity with this source.
+set +e
+origin_local="$(python3 -B scripts/origin-qualification.py --local 2>/dev/null)"
+origin_local_rc=$?
+set -e
+if [[ $origin_local_rc -eq 0 ]]; then
+  origin_url="$(git remote get-url origin 2>/dev/null || true)"
   pass "catcleaner_origin" "$origin_url"
+  if python3 -B scripts/origin-qualification.py --check >/dev/null 2>&1; then
+    pass "origin_qualification" "ADMIN GitHub origin receipt matches current HEAD/tree and remote URLs"
+  else
+    block "origin_qualification" "run python3 scripts/origin-qualification.py --qualify after configuring and pushing the exact source"
+  fi
 else
-  block "catcleaner_origin" "no CatCleaner-owned origin remote is configured"
+  block "catcleaner_origin" "no valid GitHub CatCleaner origin is configured"
+  info "origin_qualification" "not evaluated until a valid CatCleaner origin exists"
 fi
 
 # 4. Upstream must remain fetch-only/fail-closed for push.
@@ -105,18 +117,24 @@ else
   block "upstream_boundary" "upstream remote boundary is not in the expected fail-closed state"
 fi
 
-# 5. Public macOS distribution requires a real Developer ID Application cert.
-developer_id="$(
-  security find-identity -v -p codesigning 2>/dev/null |
-    sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' |
-    head -1
-)"
-if [[ -z "$developer_id" ]]; then
-  block "developer_id" "no Developer ID Application identity found in Keychain"
-elif [[ "$developer_id" == *"H3XLS95QV4"* ]] || [[ "$developer_id" == *"Iliya Mirzaei"* ]]; then
-  block "developer_id" "upstream Mac Sai Developer ID must not be reused: $developer_id"
-else
+# 5. Public macOS distribution requires one eligible CatCleaner Developer ID
+# Application identity. Once present, bind its certificate fingerprint, Team ID,
+# validity window and exact source into a local qualification receipt.
+set +e
+developer_local="$(python3 -B scripts/developer-id-qualification.py --local 2>/dev/null)"
+developer_local_rc=$?
+set -e
+if [[ $developer_local_rc -eq 0 ]]; then
+  developer_id="$(printf '%s\n' "$developer_local" | sed -n 's/^identity=//p' | head -1)"
   pass "developer_id" "$developer_id"
+  if python3 -B scripts/developer-id-qualification.py --check >/dev/null 2>&1; then
+    pass "developer_id_qualification" "certificate/Team ID receipt matches current HEAD/tree and Keychain"
+  else
+    block "developer_id_qualification" "run python3 scripts/developer-id-qualification.py --qualify for this exact clean source"
+  fi
+else
+  block "developer_id" "no unique eligible non-upstream Developer ID Application identity is available"
+  info "developer_id_qualification" "not evaluated until an eligible Developer ID exists"
 fi
 
 # 6. Release/signing workflows may be checked in before credentials exist, but

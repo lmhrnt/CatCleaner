@@ -31,6 +31,9 @@ jobs:
       - name: Verify fail-closed release workflow contract
         run: python3 scripts/check-release-contract.py
 
+      - name: Verify qualification gate contracts
+        run: python3 -B scripts/check-qualification-contract.py
+
       - name: Build core
         run: swift build --target MacCleanKit
 
