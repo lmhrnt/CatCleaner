@@ -45,10 +45,16 @@ if ! RESOLVED_DEVELOPER_DIR="$("$SCRIPT_DIR/resolve-xcode.sh")"; then
 fi
 SELECTED_DEVELOPER_DIR="$RESOLVED_DEVELOPER_DIR"
 
-SWIFT_UI_MACRO="$SELECTED_DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib"
-if [[ ! -f "$SWIFT_UI_MACRO" ]]; then
-  echo "ERROR: Full Xcode is selected, but SwiftUIMacros is missing:" >&2
-  echo "  $SWIFT_UI_MACRO" >&2
+SWIFT_UI_MACRO_PLATFORM="$SELECTED_DEVELOPER_DIR/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib"
+SWIFT_UI_MACRO_TOOLCHAIN="$SELECTED_DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib"
+if [[ -f "$SWIFT_UI_MACRO_PLATFORM" ]]; then
+  SWIFT_UI_MACRO="$SWIFT_UI_MACRO_PLATFORM"
+elif [[ -f "$SWIFT_UI_MACRO_TOOLCHAIN" ]]; then
+  SWIFT_UI_MACRO="$SWIFT_UI_MACRO_TOOLCHAIN"
+else
+  echo "ERROR: Full Xcode is selected, but SwiftUIMacros is missing from both supported locations:" >&2
+  echo "  $SWIFT_UI_MACRO_PLATFORM" >&2
+  echo "  $SWIFT_UI_MACRO_TOOLCHAIN" >&2
   echo "The Xcode installation may be incomplete or incompatible." >&2
   exit 78
 fi
