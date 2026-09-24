@@ -2,10 +2,12 @@
 
 CatCleaner is an independent downstream product derived from Mac Sai.
 
-**Release publishing is intentionally disabled right now.** The repository may
-build local ad-hoc app bundles for development, but it must not reuse the
-upstream project's signing identity, notarization credentials, GitHub release
-feed, Homebrew tap, or visual branding.
+**Release publishing is fail-closed right now.** The repository contains
+manual release/signing workflows, but publishing requires an existing matching
+version tag, an explicit `publish=true` dispatch, CatCleaner-owned signing
+secrets, and successful signing/notarization verification. The project must not
+reuse the upstream project's signing identity, notarization credentials, GitHub
+release feed, Homebrew tap, or visual branding.
 
 ## Current release state
 
@@ -21,8 +23,9 @@ items are reported separately as warnings.
 
 The following are deliberately fail-closed:
 
-- `.github/workflows/release.yml`
-- `.github/workflows/verify-signing.yml`
+- `.github/workflows/release.yml`: manual-only, tag-bound, `publish=false` by default
+- `.github/workflows/verify-signing.yml`: manual-only and verification-only
+- `scripts/check-release-contract.py`: executable guardrail for both workflow contracts
 - `MCConstants.updateChecksEnabled == false`
 - `MCConstants.latestReleaseAPI == nil`
 - `MCConstants.homebrewCaskAPI == nil`
@@ -100,8 +103,10 @@ All of the following must be completed with **CatCleaner-owned** identities:
 14. Verify Gatekeeper, notarization, stapling, Full Disk Access behavior, login
     item registration, and menu helper identity.
 
-Only after this checklist is satisfied should the disabled release/signing
-workflows be replaced with active publishing workflows.
+Only after this checklist is satisfied should CatCleaner-owned credentials be
+configured and the release workflow be manually dispatched from the matching
+version tag with `publish=true`. The checked-in workflows remain fail-closed
+before those prerequisites exist.
 
 ## Future notarized local build
 
@@ -126,19 +131,20 @@ The build script will:
 
 ## Required future CI secrets
 
-Secret names may follow the existing workflow conventions, but every value must
-belong to CatCleaner:
+The checked-in workflows currently expect these CatCleaner-owned GitHub
+Actions secrets:
 
 | Secret | Purpose |
 |---|---|
-| `APPLE_DEVELOPER_ID` | CatCleaner Developer ID Application identity |
-| `DEVELOPER_ID_CERT_P12` | Base64-encoded CatCleaner signing certificate |
-| `DEVELOPER_ID_CERT_PASSWORD` | Password for that P12 |
-| `ASC_KEY_ID` | CatCleaner/App Store Connect API key ID |
-| `ASC_ISSUER_ID` | App Store Connect issuer ID |
-| `ASC_KEY_P8_BASE64` | Base64-encoded CatCleaner notarization API key |
-| `NOTARY_PROFILE` | CatCleaner-owned notarytool profile name |
-| optional CatCleaner tap token | Only if a CatCleaner Homebrew tap exists |
+| `CATCLEANER_CERTIFICATE_P12_BASE64` | Base64-encoded CatCleaner Developer ID Application certificate |
+| `CATCLEANER_CERTIFICATE_PASSWORD` | Password for that P12 |
+| `CATCLEANER_APPLE_ID` | Apple ID used by CatCleaner's notarization credentials |
+| `CATCLEANER_APP_PASSWORD` | App-specific password used by `notarytool` |
+| `CATCLEANER_TEAM_ID` | CatCleaner Apple Developer Team ID |
+
+The workflow imports the certificate into an ephemeral CI Keychain, derives the
+actual Developer ID identity from that certificate, rejects the upstream Team
+ID, and creates an ephemeral `notarytool` profile for that run.
 
 Never populate these secrets with credentials belonging to the upstream
 project.

@@ -12,7 +12,7 @@ jobs:
     name: Build, Test & Bundle
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Show toolchain
         run: |
@@ -27,6 +27,9 @@ jobs:
 
       - name: Verify VERSION ↔ MCConstants.appVersion sync
         run: bash scripts/check-version-sync.sh
+
+      - name: Verify fail-closed release workflow contract
+        run: python3 scripts/check-release-contract.py
 
       - name: Build core
         run: swift build --target MacCleanKit
@@ -102,7 +105,7 @@ jobs:
     name: Safety & Downstream Isolation Audit
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check for likely hardcoded secrets
         run: |

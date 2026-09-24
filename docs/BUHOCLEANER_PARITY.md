@@ -47,7 +47,7 @@
 | macOS 14+ | ✅ | Package.swift 最低 macOS 14 |
 | CatCleaner 自有主圖示/視覺品牌 | ⚠️ | upstream AppIcon/demo/social-preview 已移除；自有主圖示完成前使用 macOS generic application icon |
 | 正式 Developer ID 簽章 | ⚠️ | CatCleaner 不繼承 upstream Team ID；自己的 Team ID 尚未配置 |
-| Notarization | ⚠️ | 發佈 workflow 刻意 disabled，避免誤用 upstream identity |
+| Notarization | ⚠️ | fail-closed release/signing workflow 已建立並由 contract checker 驗證；仍等待 CatCleaner 自有 Developer ID / notarization credentials |
 | 自動更新 | ⚠️ | fail-closed；等待 CatCleaner 自有 signed release feed |
 | Homebrew cask | ⚠️ | fail-closed；不發佈 upstream mac-sai cask |
 

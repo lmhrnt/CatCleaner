@@ -104,42 +104,17 @@ else
 fi
 
 # 5. Release/signing workflows may be checked in before credentials exist, but
-# they must be fail-closed: manual dispatch only, CatCleaner-owned secret names,
-# upstream Team ID rejection, and (for publication) an explicit false-by-default
-# publish input plus an existing matching v* tag.
-release_workflow=".github/workflows/release.yml"
-if
-  rg -q '^name: CatCleaner Release$' "$release_workflow" &&
-  rg -q '^  workflow_dispatch:$' "$release_workflow" &&
-  rg -q '^      publish:$' "$release_workflow" &&
-  rg -q '^        default: false$' "$release_workflow" &&
-  rg -q 'if: \$\{\{ inputs\.publish == true \}\}' "$release_workflow" &&
-  rg -q 'refs/tags/v' "$release_workflow" &&
-  rg -q -- '--verify-tag' "$release_workflow" &&
-  rg -q 'CATCLEANER_CERTIFICATE_P12_BASE64' "$release_workflow" &&
-  rg -q 'CATCLEANER_TEAM_ID' "$release_workflow" &&
-  rg -q 'H3XLS95QV4' "$release_workflow"
-then
-  pass "release_workflow" "manual, tag-bound, false-by-default publishing workflow is present"
+# they must satisfy the executable fail-closed contract enforced in CI.
+if python3 scripts/check-release-contract.py --scope release >/dev/null 2>&1; then
+  pass "release_workflow" "fail-closed publication contract verified"
 else
-  block "release_workflow" "release workflow is missing required fail-closed publication guards"
+  block "release_workflow" "release workflow failed the fail-closed publication contract"
 fi
 
-signing_workflow=".github/workflows/verify-signing.yml"
-if
-  rg -q '^name: CatCleaner Signing Verification$' "$signing_workflow" &&
-  rg -q '^  workflow_dispatch:$' "$signing_workflow" &&
-  rg -q '^  contents: read$' "$signing_workflow" &&
-  rg -q 'CATCLEANER_CERTIFICATE_P12_BASE64' "$signing_workflow" &&
-  rg -q 'CATCLEANER_TEAM_ID' "$signing_workflow" &&
-  rg -q 'H3XLS95QV4' "$signing_workflow" &&
-  rg -q './scripts/build-dmg.sh --notarize' "$signing_workflow" &&
-  rg -q 'codesign --verify --deep --strict' "$signing_workflow" &&
-  rg -q 'xcrun stapler validate' "$signing_workflow"
-then
-  pass "signing_workflow" "manual read-only signing/notarization verification workflow is present"
+if python3 scripts/check-release-contract.py --scope signing >/dev/null 2>&1; then
+  pass "signing_workflow" "fail-closed signing/notarization contract verified"
 else
-  block "signing_workflow" "signing workflow is missing required fail-closed verification guards"
+  block "signing_workflow" "signing workflow failed the fail-closed verification contract"
 fi
 
 # 6. Release build sources must remain version-consistent.

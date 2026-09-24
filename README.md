@@ -130,7 +130,7 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 ./scripts/release-readiness.sh
 ```
 
-目前功能 gate 已可達 `verdict=FEATURE_COMPLETE_LOCAL`；公開發佈 gate 則預期維持 `verdict=HOLD`，直到 CatCleaner 擁有完整 Xcode、自己的 GitHub origin、Developer ID，以及正式啟用的 release/signing workflow。warning（自有主圖示、自動更新、Homebrew、notary profile 等）會另外列出，不與 required blocker 混在一起。
+目前功能 gate 已可達 `verdict=FEATURE_COMPLETE_LOCAL`；公開發佈 gate 則預期維持 `verdict=HOLD`，直到 CatCleaner 擁有完整 Xcode、自己的 GitHub origin 與 Developer ID。release/signing workflow 已具備 fail-closed 骨架，並由 `scripts/check-release-contract.py` 與 CI 驗證；在 CatCleaner 自有 secrets、tag 與明確 `publish=true` 不成立時不會發布。warning（自有主圖示、自動更新、Homebrew、notary profile 等）會另外列出，不與 required blocker 混在一起。
 
 ## 本機開發
 

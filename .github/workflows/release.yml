@@ -22,7 +22,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Check out the selected tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -125,7 +125,7 @@ jobs:
           shasum -a 256 "$DMG_PATH"
 
       - name: Upload notarized DMG evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "CatCleaner-${{ env.VERSION }}-notarized"
           path: ${{ env.DMG_PATH }}
