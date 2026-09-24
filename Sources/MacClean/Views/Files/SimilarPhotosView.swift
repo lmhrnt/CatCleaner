@@ -403,7 +403,7 @@ private struct SimilarPhotoCard: View {
                     .foregroundStyle(distance == nil ? Color.blue : Color.secondary)
 
                 if let distance {
-                    Text("d=\(String(format: "%.3f", distance))")
+                    Text("差異度＝\(String(format: "%.3f", distance))")
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }

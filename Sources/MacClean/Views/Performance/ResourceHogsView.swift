@@ -21,7 +21,7 @@ struct ResourceHogsView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Picker(L10n.tr("排序", "Sort", "Сортировка"), selection: $sortBy) {
-                    Text(L10n.tr("CPU", "CPU", "CPU")).tag(ResourceHogsPolicy.SortKey.cpu)
+                    Text(L10n.tr("处理器", "CPU", "CPU")).tag(ResourceHogsPolicy.SortKey.cpu)
                     Text(L10n.tr("内存", "Memory", "Память")).tag(ResourceHogsPolicy.SortKey.memory)
                 }
                 .pickerStyle(.segmented)
@@ -110,7 +110,7 @@ struct ResourceHogsView: View {
             ))
         }
         .alert(statusMessage ?? "", isPresented: $showStatus) {
-            Button("OK") { showStatus = false }
+            Button("確定") { showStatus = false }
         }
     }
 
@@ -175,7 +175,7 @@ private struct ResourceHogRowView: View {
                 Text(row.snapshot.name)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
-                Text("PID \(row.snapshot.pid)")
+                Text("行程編號 \(row.snapshot.pid)")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }

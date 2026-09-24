@@ -45,6 +45,30 @@ final class MenuBarMetricTests: XCTestCase {
         XCTAssertEqual(MenuBarMetric.batteryTemperature.localizedName, "电池温度")
     }
 
+    func testTaiwaneseChineseMetricNamesAndPrefixes() {
+        AppLanguage.current = .zhHantTW
+        XCTAssertEqual(MenuBarMetric.gpuUsage.localizedName, "圖形處理器使用率")
+        XCTAssertEqual(MenuBarMetric.memoryUsage.localizedName, "記憶體使用率")
+        XCTAssertEqual(
+            MenuBarMetric.gpuUsage.formattedValue(
+                diskFree: 0,
+                gpuUsage: 0.424,
+                memoryUsage: 0,
+                batteryTemperature: nil
+            ),
+            "圖形處理器 42%"
+        )
+        XCTAssertEqual(
+            MenuBarMetric.memoryUsage.formattedValue(
+                diskFree: 0,
+                gpuUsage: nil,
+                memoryUsage: 0.5,
+                batteryTemperature: nil
+            ),
+            "記憶體 50%"
+        )
+    }
+
     func testDiskKeepsExistingFormatting() {
         let bytes: UInt64 = 245_000_000_000
         XCTAssertEqual(
@@ -59,6 +83,7 @@ final class MenuBarMetricTests: XCTestCase {
     }
 
     func testPercentagesRoundAndClamp() {
+        AppLanguage.current = .en
         XCTAssertEqual(
             MenuBarMetric.gpuUsage.formattedValue(
                 diskFree: 0,
@@ -89,6 +114,7 @@ final class MenuBarMetricTests: XCTestCase {
     }
 
     func testUnavailableAndNonFiniteValuesUseDoubleHyphen() {
+        AppLanguage.current = .en
         XCTAssertEqual(
             MenuBarMetric.gpuUsage.formattedValue(
                 diskFree: 0,

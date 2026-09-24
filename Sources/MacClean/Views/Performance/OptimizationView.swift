@@ -21,7 +21,7 @@ struct OptimizationView: View {
                     Text(L10n.tr("优化", "Optimization", "Оптимизация"))
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr("查看占用 CPU 和内存的应用并强制退出", "See CPU and memory hogs and force-quit them", "Смотрите приложения с высокой нагрузкой и завершайте их"))
+                    Text(L10n.tr("查看占用处理器和内存的应用程序并强制退出", "See CPU and memory hogs and force-quit them", "Смотрите приложения с высокой нагрузкой и завершайте их"))
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
                 }
@@ -89,7 +89,7 @@ struct OptimizationView: View {
             .padding(.bottom, 20)
         }
         .alert(alertMessage, isPresented: $showAlert) {
-            Button("OK") { showAlert = false }
+            Button("確定") { showAlert = false }
         }
         .task { refresh() }
     }

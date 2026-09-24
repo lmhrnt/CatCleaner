@@ -91,7 +91,7 @@ struct FileHandlerView: View {
             restoreSheet
         }
         .alert(L10n.tr("错误", "Error", "Ошибка"), isPresented: $viewModel.showError) {
-            Button("OK") { viewModel.showError = false }
+            Button("確定") { viewModel.showError = false }
         } message: {
             Text(viewModel.errorMessage ?? L10n.tr("发生未知错误", "An unknown error occurred", "Произошла неизвестная ошибка"))
         }
@@ -222,11 +222,11 @@ private struct HandlerRowView: View {
                     .lineLimit(1)
 
                 if let ct = handler.contentType {
-                    Text("UTI: \(ct)")
+                    Text("統一類型識別碼：\(ct)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 } else if handler.urlScheme != nil {
-                    Text(L10n.tr("URL Scheme", "URL Scheme", "URL-схема"))
+                    Text(L10n.tr("網址通訊協定", "URL Scheme", "URL-схема"))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }

@@ -232,7 +232,7 @@ struct SettingsPageView: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.tr("在菜单栏显示 \(MCConstants.appName)", "Show \(MCConstants.appName) in the menu bar", "Показывать \(MCConstants.appName) в строке меню"))
-                    Text(L10n.tr("在屏幕顶部实时显示 CPU、内存、磁盘、电池和网络状态。点击可展开浮窗。", "Live CPU, memory, disk, battery, and network at the top of your screen. Click to expand the popover.", "Показывает в верхней части экрана данные о CPU, памяти, диске, батарее и сети в реальном времени. Нажмите, чтобы раскрыть панель."))
+                    Text(L10n.tr("在屏幕顶部实时显示处理器、内存、磁盘、电池和网络状态。点击可展开浮窗。", "Live CPU, memory, disk, battery, and network at the top of your screen. Click to expand the popover.", "Показывает в верхней части экрана данные о CPU, памяти, диске, батарее и сети в реальном времени. Нажмите, чтобы раскрыть панель."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -258,7 +258,7 @@ struct SettingsPageView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.tr("菜单栏显示", "Menu bar display"))
                     Text(L10n.tr(
-                        "选择应用图标旁显示的紧凑数值。GPU 或电池温度不可用时显示 --。",
+                        "选择应用图标旁显示的紧凑数值。图形处理器或电池温度不可用时显示 --。",
                         "Choose the compact value shown next to the app icon. Unavailable GPU or battery sensors appear as --."
                     ))
                     .font(.caption)
@@ -308,13 +308,18 @@ struct SettingsPageView: View {
     private var interfaceLanguageSection: some View {
         Section(L10n.tr("界面语言", "Interface Language", "Язык интерфейса")) {
             Picker(L10n.tr("语言", "Language", "Язык"), selection: $appLanguageRaw) {
-                ForEach(AppLanguage.allCases) { language in
+                ForEach(AppLanguage.selectableCases) { language in
                     Text(language.pickerLabel).tag(language.rawValue)
                 }
             }
             .pickerStyle(.segmented)
             .onChange(of: appLanguageRaw) { _, newValue in
-                AppLanguage.current = AppLanguage(rawValue: newValue) ?? .fallback
+                let selected = AppLanguage(rawValue: newValue) ?? .fallback
+                let product = AppLanguage.productLanguage(selected)
+                if product != selected {
+                    appLanguageRaw = product.rawValue
+                }
+                AppLanguage.current = product
             }
 
             Text(L10n.tr("切换后会立即应用到主界面和菜单栏小组件。", "Changes apply immediately to the main window and menu-bar widget.", "Язык сразу меняется в главном окне и виджете в строке меню."))

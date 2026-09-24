@@ -13,11 +13,11 @@ struct MacCleanApp: App {
     @State private var showOnboarding = false
 
     init() {
-        AppLanguage.registerDefault(.system)
+        AppLanguage.prepareTaiwaneseChineseProductDefault()
     }
 
     private var appLanguage: AppLanguage {
-        AppLanguage(rawValue: appLanguageRaw) ?? .fallback
+        AppLanguage.productLanguage(AppLanguage(rawValue: appLanguageRaw) ?? .fallback)
     }
 
     var body: some Scene {

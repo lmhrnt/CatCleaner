@@ -231,7 +231,7 @@ struct DeveloperCleanupExecutor: Sendable {
             return GCResult(
                 success: false,
                 reclaimedBytes: 0,
-                message: "CatDesk build-cache path failed exact-path guard"
+                message: "CatDesk 編譯快取路徑未通過精確路徑防護檢查"
             )
         }
 
@@ -245,7 +245,7 @@ struct DeveloperCleanupExecutor: Sendable {
             return GCResult(
                 success: false,
                 reclaimedBytes: 0,
-                message: "CatDesk build-cache root is not a directory"
+                message: "CatDesk 編譯快取根目錄不是資料夾"
             )
         }
 
@@ -253,7 +253,7 @@ struct DeveloperCleanupExecutor: Sendable {
             return GCResult(
                 success: false,
                 reclaimedBytes: 0,
-                message: "CatDesk build-cache GC helper is unavailable"
+                message: "CatDesk 編譯快取清理工具目前無法使用"
             )
         }
 
@@ -274,8 +274,8 @@ struct DeveloperCleanupExecutor: Sendable {
                 success: false,
                 reclaimedBytes: 0,
                 message: tail.isEmpty
-                    ? "CatDesk build-cache GC failed with exit \(processResult.exitCode)"
-                    : "CatDesk build-cache GC failed: \(tail)"
+                    ? "CatDesk 編譯快取清理失敗，結束代碼 \(processResult.exitCode)"
+                    : "CatDesk 編譯快取清理失敗：\(tail)"
             )
         }
 
@@ -286,7 +286,7 @@ struct DeveloperCleanupExecutor: Sendable {
         return GCResult(
             success: true,
             reclaimedBytes: before > after ? before - after : 0,
-            message: "OK"
+            message: "完成"
         )
     }
 

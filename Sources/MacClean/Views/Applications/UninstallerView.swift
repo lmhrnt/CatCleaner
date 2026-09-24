@@ -226,7 +226,7 @@ struct UninstallerView: View {
                     Text(app.name).font(.headline)
                     Text(app.bundleIdentifier).font(.caption).foregroundStyle(.secondary)
                     if let version = app.version {
-                        Text("v\(version)").font(.caption2).foregroundStyle(.tertiary)
+                        Text("版本 \(version)").font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
                 Spacer()

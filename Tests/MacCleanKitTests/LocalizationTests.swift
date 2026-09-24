@@ -20,10 +20,25 @@ final class LocalizationTests: AppLanguageTestCase {
     }
 
     func testTraditionalChineseTaiwanIsSelectableAndUsesTaiwanLocale() {
-        XCTAssertTrue(AppLanguage.allCases.contains(.zhHantTW))
+        XCTAssertTrue(AppLanguage.selectableCases.contains(.zhHantTW))
+        XCTAssertFalse(AppLanguage.selectableCases.contains(.en))
+        XCTAssertEqual(AppLanguage.fallback, .zhHantTW)
         XCTAssertEqual(AppLanguage.zhHantTW.rawValue, "zh-Hant-TW")
         XCTAssertEqual(AppLanguage.zhHantTW.localeIdentifier, "zh-Hant-TW")
         XCTAssertEqual(AppLanguage.zhHantTW.pickerLabel, "繁體中文（台灣）")
+    }
+
+    func testTaiwaneseChineseProductDefaultMigratesNewAndEnglishPreferences() {
+        SharedAppState.defaults.removeObject(forKey: AppLanguage.defaultsKey)
+        UserDefaults.standard.removeObject(forKey: AppLanguage.defaultsKey)
+        AppLanguage.prepareTaiwaneseChineseProductDefault()
+        XCTAssertEqual(AppLanguage.current, .zhHantTW)
+
+        AppLanguage.current = .en
+        AppLanguage.prepareTaiwaneseChineseProductDefault()
+        XCTAssertEqual(AppLanguage.current, .zhHantTW)
+        XCTAssertEqual(AppLanguage.productLanguage(.en), .zhHantTW)
+        XCTAssertEqual(AppLanguage.productLanguage(.zhHans), .zhHans)
     }
 
     func testPreferredLanguageRecognizesTraditionalChineseIdentifiers() {
@@ -44,6 +59,20 @@ final class LocalizationTests: AppLanguageTestCase {
         XCTAssertEqual(L10n.tr("大型文件", "Large Files", "Большие файлы"), "大型檔案")
         XCTAssertEqual(L10n.tr("内存", "Memory", "Память"), "記憶體")
         XCTAssertEqual(L10n.tr("磁盘", "Disk", "Диск"), "磁碟")
+        XCTAssertEqual(L10n.tr("智能扫描", "Smart Scan"), "智慧掃描")
+        XCTAssertEqual(L10n.tr("界面语言", "Interface Language"), "介面語言")
+        XCTAssertEqual(L10n.tr("菜单栏显示", "Menu bar display"), "選單列顯示")
+        XCTAssertEqual(L10n.tr("用户缓存", "User caches"), "使用者快取")
+        XCTAssertEqual(L10n.tr("正在加载数据", "Loading data"), "正在載入資料")
+        XCTAssertEqual(L10n.tr("查看服务器", "View server"), "檢視伺服器")
+        XCTAssertEqual(L10n.tr("处理器", "CPU"), "處理器")
+        XCTAssertEqual(L10n.tr("图形处理器", "GPU"), "圖形處理器")
+        XCTAssertEqual(L10n.tr("实时系统状态", "Live system stats"), "即時系統狀態")
+        XCTAssertEqual(L10n.tr("屏幕顶部", "Top of screen"), "螢幕頂部")
+        XCTAssertEqual(L10n.tr("正在读取进程", "Reading processes"), "正在讀取行程")
+        XCTAssertEqual(L10n.tr("互联网插件", "Internet Plug-Ins"), "網際網路插件")
+        XCTAssertEqual(L10n.tr("集成开发环境", "IDE"), "整合式開發環境")
+        XCTAssertEqual(L10n.tr("人工智能工具", "AI tools"), "人工智慧工具")
     }
 
     func testThreeLanguageTranslation() {

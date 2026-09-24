@@ -231,7 +231,7 @@ public struct SidebarView: View {
                 Spacer()
                 // Version lives here (not in the title bar); kept in sync
                 // with VERSION by CI via check-version-sync.sh.
-                Text("v\(MCConstants.appVersion)")
+                Text("版本 \(MCConstants.appVersion)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }

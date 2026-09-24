@@ -5,7 +5,7 @@ import MacCleanKit
 @main
 struct MacCleanMenuApp: App {
     init() {
-        AppLanguage.registerDefault(.system)
+        AppLanguage.prepareTaiwaneseChineseProductDefault()
         // Single-instance enforcement. macOS does NOT auto-deduplicate
         // LSUIElement apps by bundle id the way it does for regular apps,
         // and we have two launch paths (SMAppService + NSWorkspace). Keep
@@ -46,7 +46,7 @@ struct MacCleanMenuApp: App {
     @AppStorage(MenuBarMetric.defaultsKey, store: SharedAppState.defaults) private var menuBarMetricRaw = MenuBarMetric.diskFree.rawValue
 
     private var appLanguage: AppLanguage {
-        AppLanguage(rawValue: appLanguageRaw) ?? .fallback
+        AppLanguage.productLanguage(AppLanguage(rawValue: appLanguageRaw) ?? .fallback)
     }
 
     /// Menu-bar label icon: an SF Symbol rendered as a template image so
@@ -173,7 +173,7 @@ struct MenuContentView: View {
     private func statGrid(_ s: SystemStatsCollector.SystemStats) -> some View {
         let diskUsed = s.diskTotal > 0 ? Double(s.diskTotal - s.diskFree) / Double(s.diskTotal) : 0
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-            ringCard(icon: "cpu", label: "CPU",
+            ringCard(icon: "cpu", label: L10n.tr("处理器", "CPU", "CPU"),
                      value: s.cpuUsage, center: "\(Int((s.cpuUsage*100).rounded()))%",
                      sub: nil)
             ringCard(icon: "memorychip", label: L10n.tr("内存", "Memory", "Память"),

@@ -130,7 +130,7 @@ struct ExtensionsView: View {
                 if items.contains(where: { $0.kind == .internetPlugin }) {
                     section(
                         kind: .internetPlugin,
-                        title: L10n.tr("Internet 插件", "Internet Plug-Ins", "Интернет-плагины"),
+                        title: L10n.tr("互联网插件", "Internet Plug-Ins", "Интернет-плагины"),
                         icon: "puzzlepiece.extension"
                     )
                 }

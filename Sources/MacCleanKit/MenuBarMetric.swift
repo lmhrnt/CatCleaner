@@ -24,7 +24,7 @@ public enum MenuBarMetric: String, CaseIterable, Identifiable, Sendable {
         case .diskFree:
             L10n.tr("可用磁盘空间", "Free disk space")
         case .gpuUsage:
-            L10n.tr("GPU 使用率", "GPU usage")
+            L10n.tr("图形处理器使用率", "GPU usage", "Загрузка GPU")
         case .memoryUsage:
             L10n.tr("内存使用率", "Memory usage")
         case .batteryTemperature:
@@ -43,9 +43,9 @@ public enum MenuBarMetric: String, CaseIterable, Identifiable, Sendable {
         case .diskFree:
             FileSizeFormatter.format(diskFree)
         case .gpuUsage:
-            Self.formattedPercent(prefix: "GPU", value: gpuUsage)
+            Self.formattedPercent(prefix: L10n.tr("图形处理器", "GPU", "GPU"), value: gpuUsage)
         case .memoryUsage:
-            Self.formattedPercent(prefix: "RAM", value: memoryUsage)
+            Self.formattedPercent(prefix: L10n.tr("内存", "RAM", "RAM"), value: memoryUsage)
         case .batteryTemperature:
             Self.formattedTemperature(batteryTemperature)
         }

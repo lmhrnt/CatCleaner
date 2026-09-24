@@ -12,7 +12,11 @@ public enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
     case en = "en"
 
     public static let defaultsKey = "appLanguage"
-    public static let fallback: AppLanguage = .en
+    public static let fallback: AppLanguage = .zhHantTW
+
+    /// English remains only as a legacy stored value so older preferences can
+    /// be decoded and migrated. It is no longer offered as a user-facing mode.
+    public static let selectableCases: [AppLanguage] = [.zhHantTW, .system, .zhHans, .ru]
 
     public var id: String { rawValue }
 
@@ -74,7 +78,7 @@ public enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
         case .ru: "Русский"
         case .zhHans: "简体中文"
         case .zhHantTW: "繁體中文（台灣）"
-        case .en: "English"
+        case .en: "繁體中文（台灣）"
         }
     }
 
@@ -96,13 +100,40 @@ public enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Set a product default without changing an existing user choice. Tests and
-    /// command-line tools keep the English fallback, while the shipped apps call
-    /// this on launch to follow the user's system language by default.
+    /// Set a product default without changing an existing user choice. The
+    /// shipped product falls back to Traditional Chinese (Taiwan); legacy English
+    /// preferences are transparently migrated to that locale.
     public static func registerDefault(_ language: AppLanguage) {
         guard SharedAppState.defaults.string(forKey: defaultsKey) == nil,
               UserDefaults.standard.string(forKey: defaultsKey) == nil else { return }
         current = language
+    }
+
+    /// Product-level migration for the locally shipped CatCleaner app.
+    /// New installs default to Traditional Chinese (Taiwan). A legacy English
+    /// preference, or a saved "System" preference on an English macOS setup,
+    /// is migrated to zh-Hant-TW so the user-facing app no longer falls back to
+    /// English. Other explicitly selected supported languages remain unchanged.
+    public static func productLanguage(_ language: AppLanguage) -> AppLanguage {
+        if language == .en || (language == .system && Self.systemPreferred == .en) {
+            return .zhHantTW
+        }
+        return language
+    }
+
+    public static func prepareTaiwaneseChineseProductDefault() {
+        let storedRaw = SharedAppState.defaults.string(forKey: defaultsKey)
+            ?? UserDefaults.standard.string(forKey: defaultsKey)
+
+        guard let storedRaw, let stored = AppLanguage(rawValue: storedRaw) else {
+            current = .zhHantTW
+            return
+        }
+
+        let product = productLanguage(stored)
+        if product != stored {
+            current = product
+        }
     }
 }
 
@@ -112,7 +143,7 @@ public enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
 /// hard-coded. A full `.strings` migration would require touching almost every
 /// call site and packaging resource bundles for the custom app builder. This
 /// helper keeps the current no-resource build flow while still allowing instant
-/// Simplified Chinese/Traditional Chinese (Taiwan)/English/Russian switching at runtime.
+/// Simplified Chinese/Traditional Chinese (Taiwan)/Russian switching at runtime.
 public enum L10n {
     /// Keeps newly added strings usable until a Russian translation is supplied.
     /// Existing localized strings use the three-argument overload below.
@@ -162,6 +193,36 @@ public enum L10n {
         // common Taiwan/macOS terminology.
         let replacements: [(String, String)] = [
             ("應用程序", "應用程式"),
+            ("應用權限", "應用程式權限"),
+            ("應用更新", "應用程式更新"),
+            ("應用圖標", "應用程式圖示"),
+            ("界面", "介面"),
+            ("信息", "資訊"),
+            ("數據", "資料"),
+            ("用戶", "使用者"),
+            ("菜單欄", "選單列"),
+            ("窗口", "視窗"),
+            ("鏈接", "連結"),
+            ("服務器", "伺服器"),
+            ("加載", "載入"),
+            ("實時", "即時"),
+            ("屏幕", "螢幕"),
+            ("浮窗", "浮動視窗"),
+            ("進程", "行程"),
+            ("剪貼板", "剪貼簿"),
+            ("互聯網", "網際網路"),
+            ("集成開發環境", "整合式開發環境"),
+            ("人工智能", "人工智慧"),
+            ("智能", "智慧"),
+            ("軟件", "軟體"),
+            ("查看", "檢視"),
+            ("快捷鍵", "鍵盤快速鍵"),
+            ("發布", "發佈"),
+            ("圖標", "圖示"),
+            ("硬盤", "硬碟"),
+            ("登錄項", "登入項目"),
+            ("登錄時", "登入時"),
+            ("登錄", "登入"),
             ("卸載器", "解除安裝工具"),
             ("卸載", "解除安裝"),
             ("廢紙簍", "垃圾桶"),
