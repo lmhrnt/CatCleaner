@@ -44,20 +44,60 @@ struct MacCleanMenuApp: App {
     @State private var model = MenuStatsModel.shared
     @AppStorage(AppLanguage.defaultsKey, store: SharedAppState.defaults) private var appLanguageRaw = AppLanguage.system.rawValue
     @AppStorage(MenuBarMetric.defaultsKey, store: SharedAppState.defaults) private var menuBarMetricRaw = MenuBarMetric.diskFree.rawValue
+    @AppStorage(BatteryCarePreferences.menuBarStyleKey, store: SharedAppState.defaults) private var batteryMenuBarStyleRaw = BatteryCareMenuBarStyle.battery.rawValue
+    @AppStorage(BatteryCarePreferences.compactPopupKey, store: SharedAppState.defaults) private var compactBatteryPopup = false
 
     private var appLanguage: AppLanguage {
         AppLanguage.productLanguage(AppLanguage(rawValue: appLanguageRaw) ?? .fallback)
     }
 
-    /// Menu-bar label icon: an SF Symbol rendered as a template image so
-    /// macOS automatically tints it to match the current menu bar appearance
-    /// (dark in light mode, light in dark mode).
-    private static let labelIcon: NSImage = {
-        let img = NSImage(systemSymbolName: "sparkles",
-                          accessibilityDescription: "CatCleaner")!
-        img.isTemplate = true
-        return img
-    }()
+    private var batteryMenuBarStyle: BatteryCareMenuBarStyle {
+        BatteryCareMenuBarStyle.resolve(batteryMenuBarStyleRaw)
+    }
+
+    private func menuBarSymbol(stats: SystemStatsCollector.SystemStats?) -> String {
+        switch batteryMenuBarStyle {
+        case .battery:
+            guard let level = stats?.batteryLevel else { return "battery.0" }
+            switch level {
+            case 0.875...: return "battery.100"
+            case 0.625...: return "battery.75"
+            case 0.375...: return "battery.50"
+            case 0.125...: return "battery.25"
+            default: return "battery.0"
+            }
+        case .percent:
+            return "percent"
+        case .temperature:
+            return "thermometer.medium"
+        case .minimal:
+            return "sparkles"
+        }
+    }
+
+    private func menuBarValue(stats: SystemStatsCollector.SystemStats?) -> String? {
+        guard let stats else { return nil }
+
+        switch batteryMenuBarStyle {
+        case .battery:
+            return MenuBarMetric.resolve(menuBarMetricRaw).formattedValue(
+                diskFree: stats.diskFree,
+                gpuUsage: stats.gpuUsage,
+                memoryUsage: stats.memoryTotal > 0
+                    ? Double(stats.memoryUsed) / Double(stats.memoryTotal)
+                    : 0,
+                batteryTemperature: stats.batteryTemperature
+            )
+        case .percent:
+            guard let level = stats.batteryLevel else { return "--" }
+            return "(Int((level * 100).rounded()))%"
+        case .temperature:
+            guard let temperature = stats.batteryTemperature else { return "--" }
+            return "(Int(temperature.rounded()))°C"
+        case .minimal:
+            return nil
+        }
+    }
 
     var body: some Scene {
         MenuBarExtra {
@@ -67,24 +107,16 @@ struct MacCleanMenuApp: App {
                 devices: model.devices,
                 protection: model.protection,
                 tips: model.tips,
+                compact: compactBatteryPopup,
                 onDismissTip: { model.dismissTip(id: $0) }
             )
             .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
             .id(appLanguage.rawValue)
         } label: {
             HStack(spacing: 4) {
-                Image(nsImage: Self.labelIcon)
-                    .renderingMode(.template)
-                    .foregroundStyle(.primary)
-                if let stats = model.stats {
-                    Text(MenuBarMetric.resolve(menuBarMetricRaw).formattedValue(
-                        diskFree: stats.diskFree,
-                        gpuUsage: stats.gpuUsage,
-                        memoryUsage: stats.memoryTotal > 0
-                            ? Double(stats.memoryUsed) / Double(stats.memoryTotal)
-                            : 0,
-                        batteryTemperature: stats.batteryTemperature
-                    ))
+                Image(systemName: menuBarSymbol(stats: model.stats))
+                if let value = menuBarValue(stats: model.stats) {
+                    Text(value)
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                 }
             }
@@ -121,6 +153,7 @@ struct MenuContentView: View {
     let devices: ConnectedDevices?
     let protection: SharedAppState.ProtectionStatus?
     let tips: [TipsEngine.Tip]
+    let compact: Bool
     let onDismissTip: (String) -> Void
 
     var body: some View {
@@ -134,18 +167,20 @@ struct MenuContentView: View {
                 if let stats {
                     statGrid(stats)
                     networkCard(stats)
-                    if !tips.isEmpty { recommendationsCard }
-                    if let p = protection { protectionCard(p) }
-                    if let d = devices, d.hasAny { devicesCard(d) }
+                    if !compact {
+                        if !tips.isEmpty { recommendationsCard }
+                        if let p = protection { protectionCard(p) }
+                        if let d = devices, d.hasAny { devicesCard(d) }
+                    }
                 } else {
                     ProgressView().controlSize(.small).tint(.white)
                         .frame(height: 100)
                 }
                 footer
             }
-            .padding(14)
+            .padding(compact ? 10 : 14)
         }
-        .frame(width: 340)
+        .frame(width: compact ? 286 : 340)
     }
 
     // MARK: Header

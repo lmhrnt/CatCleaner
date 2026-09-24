@@ -118,7 +118,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppearanceManager.applyStored()
         MenuBarLauncher.shared.startWatchingHelperTermination()
+        CleaningAutomationService.shared.start()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        CleaningAutomationService.shared.stop()
     }
 }

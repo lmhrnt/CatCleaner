@@ -104,6 +104,75 @@ PY
   fi
 fi
 
+extension_result="$(
+  python3 - <<'PYEXT'
+from pathlib import Path
+
+required_files = [
+    "Sources/MacCleanKit/BatteryCare.swift",
+    "Sources/MacCleanKit/BatteryTelemetry.swift",
+    "Sources/MacClean/Modules/BatteryCare/BatteryCareMonitor.swift",
+    "Sources/MacClean/Views/Battery/BatteryCareView.swift",
+    "Sources/MacClean/App/BatteryCareIntents.swift",
+    "Sources/MacCleanKit/CleaningAutomation.swift",
+    "Sources/MacClean/Services/CleaningAutomationService.swift",
+    "Tests/MacCleanKitTests/BatteryCareTests.swift",
+    "Tests/MacCleanTests/BatterySMCCapabilityTests.swift",
+    "Tests/MacCleanKitTests/CleaningAutomationTests.swift",
+]
+missing = [path for path in required_files if not Path(path).is_file()]
+if missing:
+    print("ERROR|missing=" + ",".join(missing))
+    raise SystemExit
+
+checks = {
+    "battery_policy": (
+        "Sources/MacCleanKit/BatteryCare.swift",
+        ["chargeLimitRange", "shouldPauseCharging", "shouldAutomaticallyDischarge"],
+    ),
+    "m5_capability": (
+        "Sources/MacClean/Modules/BatteryCare/BatteryCareMonitor.swift",
+        ["CHTE", "CHIE", "ACLC", "CompetingBatteryControllerProbe"],
+    ),
+    "shortcuts": (
+        "Sources/MacClean/App/BatteryCareIntents.swift",
+        ["AppShortcutsProvider", "CatCleanerBatteryStatusIntent", "CatCleanerSetChargeLimitIntent"],
+    ),
+    "browser_automation": (
+        "Sources/MacClean/Services/CleaningAutomationService.swift",
+        ["didTerminateApplicationNotification", "mode: .trash", "emptyAgedTrashIfEnabled"],
+    ),
+    "automation_policy": (
+        "Sources/MacCleanKit/CleaningAutomation.swift",
+        ["moveSafeCachesToTrash", "safeCacheRoots", "shouldEmptyTrashItem"],
+    ),
+}
+
+bad = []
+for name, (path, needles) in checks.items():
+    text = Path(path).read_text()
+    missing_needles = [needle for needle in needles if needle not in text]
+    if missing_needles:
+        bad.append(f"{name}:{','.join(missing_needles)}")
+
+if bad:
+    print("ERROR|" + "; ".join(bad))
+else:
+    print(
+        "OK|battery-care/read-only-hardware-gate + shortcuts + "
+        "menu customization + cleaning-automation contracts present"
+    )
+PYEXT
+)"
+
+extension_kind="${extension_result%%|*}"
+extension_message="${extension_result#*|}"
+if [[ "$extension_kind" == "OK" ]]; then
+  pass "product_extensions" "$extension_message"
+else
+  block "product_extensions" "$extension_message"
+fi
+
 if "$SCRIPT_DIR/core-smoke.sh" "$MODE"; then
   pass "core_smoke" "$MODE"
 else

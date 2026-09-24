@@ -26,16 +26,24 @@ struct SettingsPageView: View {
     @AppStorage("lastUpdateCheckDate") private var lastUpdateCheckTimestamp: Double = 0
     @AppStorage(AppearanceManager.defaultsKey) private var appearanceRaw = AppearanceMode.dark.rawValue
     @AppStorage(AppLanguage.defaultsKey, store: SharedAppState.defaults) private var appLanguageRaw = AppLanguage.system.rawValue
+    @AppStorage(CleaningAutomationPreferences.browserModeKey, store: SharedAppState.defaults) private var browserCleanupModeRaw = AutomaticBrowserCleanupMode.off.rawValue
+    @AppStorage(CleaningAutomationPreferences.safariEnabledKey, store: SharedAppState.defaults) private var browserCleanupSafari = true
+    @AppStorage(CleaningAutomationPreferences.chromeEnabledKey, store: SharedAppState.defaults) private var browserCleanupChrome = true
+    @AppStorage(CleaningAutomationPreferences.firefoxEnabledKey, store: SharedAppState.defaults) private var browserCleanupFirefox = true
+    @AppStorage(CleaningAutomationPreferences.emptyTrashEnabledKey, store: SharedAppState.defaults) private var automaticOldTrashCleanup = false
+    @AppStorage(CleaningAutomationPreferences.emptyTrashAgeDaysKey, store: SharedAppState.defaults) private var automaticOldTrashAgeDays = 30
     @State private var launcher = MenuBarLauncher.shared
     @State private var loginLauncher = LaunchAtLoginManager.shared
     @State private var updateState: UpdateUIState = .idle
     @State private var excludedFolders: [String] = FolderExclusionPreferences.paths
     @State private var exclusionError: String?
+    @State private var showAutomaticTrashConfirmation = false
 
     var body: some View {
         Form {
             headerSection
             generalSection
+            cleaningAutomationSection
             interfaceLanguageSection
             appearanceSection
             languageSection
@@ -300,6 +308,151 @@ struct SettingsPageView: View {
                 }
                 .buttonStyle(.bordered)
             }
+        }
+    }
+
+    // MARK: - Cleaning Automation
+
+    private var browserCleanupModeBinding: Binding<AutomaticBrowserCleanupMode> {
+        Binding(
+            get: {
+                AutomaticBrowserCleanupMode(rawValue: browserCleanupModeRaw) ?? .off
+            },
+            set: { mode in
+                browserCleanupModeRaw = mode.rawValue
+                CleaningAutomationPreferences.browserMode = mode
+                if mode == .notify {
+                    CleaningAutomationService.shared.requestNotificationPermission()
+                }
+            }
+        )
+    }
+
+    private var automaticTrashCleanupBinding: Binding<Bool> {
+        Binding(
+            get: { automaticOldTrashCleanup },
+            set: { requested in
+                if requested {
+                    showAutomaticTrashConfirmation = true
+                } else {
+                    automaticOldTrashCleanup = false
+                    CleaningAutomationPreferences.emptyTrashEnabled = false
+                }
+            }
+        )
+    }
+
+    private var cleaningAutomationSection: some View {
+        Section(L10n.tr("清理自动化", "Cleaning Automation", "Автоматизация очистки")) {
+            Picker(
+                L10n.tr("浏览器关闭后", "After a browser closes", "После закрытия браузера"),
+                selection: browserCleanupModeBinding
+            ) {
+                ForEach(AutomaticBrowserCleanupMode.allCases, id: \.rawValue) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Safari", isOn: $browserCleanupSafari)
+                Toggle("Google Chrome", isOn: $browserCleanupChrome)
+                Toggle("Firefox", isOn: $browserCleanupFirefox)
+            }
+            .disabled(browserCleanupModeBinding.wrappedValue == .off)
+
+            Text(L10n.tr(
+                "自动模式只处理可重新生成的浏览器缓存，不会删除 Cookie、密码、自动填充、书签、扩展、浏览器设置档或钥匙串内容。",
+                "Automatic mode only handles rebuildable browser caches. It never deletes cookies, passwords, autofill data, bookmarks, extensions, browser profiles, or Keychain data.",
+                "Автоматический режим обрабатывает только восстанавливаемый кэш браузера и не удаляет cookie, пароли, автозаполнение, закладки, расширения, профили или данные Связки ключей."
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            Divider()
+
+            Toggle(
+                L10n.tr(
+                    "自动永久清理垃圾桶中的旧项目",
+                    "Automatically permanently remove old Trash items",
+                    "Автоматически окончательно удалять старые объекты Корзины"
+                ),
+                isOn: automaticTrashCleanupBinding
+            )
+
+            if automaticOldTrashCleanup {
+                Stepper(
+                    L10n.tr(
+                        "仅删除至少 (automaticOldTrashAgeDays) 天前的项目",
+                        "Only remove items at least (automaticOldTrashAgeDays) days old",
+                        "Удалять только объекты старше (automaticOldTrashAgeDays) дней"
+                    ),
+                    value: $automaticOldTrashAgeDays,
+                    in: 1...365
+                )
+                .onChange(of: automaticOldTrashAgeDays) { _, newValue in
+                    CleaningAutomationPreferences.emptyTrashAgeDays = newValue
+                }
+
+                Label(
+                    L10n.tr(
+                        "这是永久删除，无法从垃圾桶恢复。缺少完整磁碟存取权时会自动跳过。",
+                        "This is permanent deletion and cannot be restored from Trash. It is skipped automatically without Full Disk Access.",
+                        "Это окончательное удаление без возможности восстановления. Без полного доступа к диску операция автоматически пропускается."
+                    ),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            }
+
+            if let summary = SharedAppState.defaults.string(
+                forKey: CleaningAutomationPreferences.lastBrowserCleanupSummaryKey
+            ) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.tr("最近自动化", "Latest automation", "Последняя автоматизация"))
+                        .font(.caption.weight(.semibold))
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if let date = SharedAppState.defaults.object(
+                        forKey: CleaningAutomationPreferences.lastBrowserCleanupDateKey
+                    ) as? Date {
+                        Text(date.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+        .alert(
+            L10n.tr(
+                "启用自动永久清理垃圾桶？",
+                "Enable automatic permanent Trash cleanup?",
+                "Включить автоматическое окончательное удаление из Корзины?"
+            ),
+            isPresented: $showAutomaticTrashConfirmation
+        ) {
+            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) {}
+            Button(
+                L10n.tr(
+                    "启用永久删除",
+                    "Enable Permanent Deletion",
+                    "Включить окончательное удаление"
+                ),
+                role: .destructive
+            ) {
+                automaticOldTrashCleanup = true
+                CleaningAutomationPreferences.emptyTrashEnabled = true
+                CleaningAutomationPreferences.emptyTrashAgeDays = automaticOldTrashAgeDays
+            }
+        } message: {
+            Text(L10n.tr(
+                "CatCleaner 将定期永久删除垃圾桶中超过指定天数的项目。这个动作不可恢复；预设维持关闭。",
+                "CatCleaner will periodically permanently delete Trash items older than the selected age. This cannot be undone and remains off by default.",
+                "CatCleaner будет периодически окончательно удалять объекты Корзины старше выбранного срока. Операция необратима и по умолчанию выключена."
+            ))
         }
     }
 

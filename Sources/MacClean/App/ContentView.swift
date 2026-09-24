@@ -191,6 +191,8 @@ struct ContentView: View {
             OptimizationView()
         case .maintenance:
             MaintenanceView()
+        case .batteryCare:
+            BatteryCareView()
         case .uninstaller:
             UninstallerHubView()
         case .extensions:

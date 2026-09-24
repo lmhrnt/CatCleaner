@@ -19,6 +19,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
     // Performance
     case optimization = "优化"
     case maintenance = "维护"
+    case batteryCare = "电池保养"
 
     // Applications
     case uninstaller = "卸载器"
@@ -53,6 +54,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .appPermissions: "app-permissions"
         case .optimization: "optimization"
         case .maintenance: "maintenance"
+        case .batteryCare: "battery-care"
         case .uninstaller: "uninstaller"
         case .extensions: "extensions"
         case .updater: "updater"
@@ -82,6 +84,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .appPermissions: "lock.shield"
         case .optimization: "gauge.with.dots.needle.67percent"
         case .maintenance: "wrench.and.screwdriver"
+        case .batteryCare: "battery.75percent"
         case .uninstaller: "xmark.app"
         case .extensions: "puzzlepiece.extension"
         case .updater: "arrow.triangle.2.circlepath"
@@ -99,7 +102,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .smartScan: .smartScan
         case .systemJunk, .mailAttachments, .trashBins: .cleanup
         case .malwareRemoval, .privacy, .wifiNetworks, .appPermissions: .protection
-        case .optimization, .maintenance: .performance
+        case .optimization, .maintenance, .batteryCare: .performance
         case .uninstaller, .extensions, .updater: .applications
         case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
         case .developerCleanup: .cleanup
@@ -112,7 +115,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .smartScan: .main
         case .systemJunk, .mailAttachments, .trashBins: .cleanup
         case .malwareRemoval, .privacy, .wifiNetworks, .appPermissions: .protection
-        case .optimization, .maintenance: .performance
+        case .optimization, .maintenance, .batteryCare: .performance
         case .uninstaller, .extensions, .updater: .applications
         case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
         case .developerCleanup: .cleanup
