@@ -23,7 +23,8 @@ cd "$REPO_ROOT"
 
 # Resolve a full Xcode only for this command without changing global
 # xcode-select, then fail fast before a long SwiftUI compile.
-export DEVELOPER_DIR="$("${SCRIPT_DIR}/resolve-xcode.sh")"
+DEVELOPER_DIR="$("${SCRIPT_DIR}/resolve-xcode.sh")"
+export DEVELOPER_DIR
 "${SCRIPT_DIR}/build-preflight.sh" --app
 
 APP_NAME="CatCleaner"

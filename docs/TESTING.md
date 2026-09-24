@@ -114,7 +114,7 @@ UI tests are deliberately out of scope. SwiftUI views are tested by visual inspe
 | Fixture support | DIY | XCTest setUp/tearDown |
 | CI integration | Custom | Standard `swift test` |
 
-The `MacCleanTestRunner` target was built when only command-line tools were installed (no Xcode). Now that Xcode 16+ is installed and CI uses macos-15, XCTest is unblocked. `MacCleanTestRunner` will be removed after migration.
+The `MacCleanTestRunner` target was built when only command-line tools were installed. CI uses a full-Xcode macOS runner, but this development Mac currently still resolves only `/Library/Developer/CommandLineTools`; local XCTest remains blocked until full Xcode is installed. After installation, run `./scripts/xcode-qualification.sh --full` to bind XCTest, the universal app build, and the exact Xcode toolchain to the current source.
 
 ---
 

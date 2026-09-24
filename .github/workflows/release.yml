@@ -19,7 +19,7 @@ concurrency:
 jobs:
   release:
     if: ${{ inputs.publish == true }}
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Check out the selected tag
         uses: actions/checkout@v7
@@ -43,6 +43,10 @@ jobs:
           git diff --exit-code
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "DMG_PATH=.build/CatCleaner-${version}.dmg" >> "$GITHUB_ENV"
+
+      - name: Qualify exact source with full Xcode
+        shell: bash
+        run: ./scripts/xcode-qualification.sh --full
 
       - name: Require CatCleaner signing and notarization secrets
         shell: bash

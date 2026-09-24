@@ -56,30 +56,7 @@ jobs:
           BUILD_ARCHS="--arch $(uname -m)" ./scripts/build-dmg.sh --app-only
 
       - name: Verify CatCleaner.app bundle identity
-        run: |
-          APP=".build/dmg/CatCleaner.app"
-          MENU="$APP/Contents/Library/LoginItems/MacCleanMenu.app"
-
-          test -d "$APP"
-          test -d "$MENU"
-
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "com.catcleaner.app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$MENU/Contents/Info.plist")" = "com.catcleaner.menu"
-
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$APP/Contents/Info.plist" |
-            grep -Fx 'catcleaner'
-
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleLocalizations' "$APP/Contents/Info.plist" |
-            grep -F 'zh-Hant-TW'
-
-          codesign --verify --deep --strict "$APP"
-
-          if find "$APP" -type f -maxdepth 8 -print0 |
-             xargs -0 strings 2>/dev/null |
-             grep -E 'com\.macclean|macclean://|brew upgrade --cask mac-sai' ; then
-            echo "::error::Upstream runtime identity leaked into CatCleaner.app"
-            exit 1
-          fi
+        run: ./scripts/verify-app-bundle.sh --native
 
       - name: Safety-critical file presence
         run: |
@@ -117,12 +94,7 @@ jobs:
 
       - name: Verify downstream runtime identity isolation
         run: |
-          forbidden=$(rg -n             'com\.macclean|macclean://|brew upgrade --cask mac-sai|Mac Sai\.app|MacSai-'             Sources scripts Package.swift 2>/dev/null || true)
-          if [ -n "$forbidden" ]; then
-            echo "$forbidden"
-            echo "::error::Upstream runtime/release identity leaked into CatCleaner"
-            exit 1
-          fi
+          ./scripts/check-runtime-identity.sh
 
           rg -n 'public static let updateChecksEnabled = false'             Sources/MacCleanKit/Constants.swift >/dev/null
           rg -n 'public static let teamIdentifier: String\? = nil'             Sources/MacCleanKit/Constants.swift >/dev/null

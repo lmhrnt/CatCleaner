@@ -17,9 +17,7 @@ Run the read-only readiness audit first:
 ./scripts/release-readiness.sh
 ```
 
-Exit code `0` means required public-release prerequisites are satisfied. Exit
-code `2` means the release remains on HOLD. Optional distribution/branding
-items are reported separately as warnings.
+Exit code `0` means required public-release prerequisites are satisfied for the exact current clean source. Exit code `2` means the release remains on HOLD. Full Xcode must have a matching `--full` qualification receipt; merely installing Xcode is not sufficient. Optional distribution/branding items are reported separately as warnings.
 
 The following are deliberately fail-closed:
 
@@ -67,13 +65,25 @@ Preflight:
 ./scripts/build-preflight.sh --tests
 ```
 
-With full Xcode available:
+With full Xcode available, run the one-shot qualification first:
 
 ```bash
-BUILD_ARCHS="--arch $(uname -m)" ./scripts/build-dmg.sh --app-only
+./scripts/xcode-qualification.sh --full
 ```
 
-This produces an ad-hoc-signed development bundle at:
+The full mode requires a clean Git working tree and binds the current HEAD/tree, exact Xcode version, and built app binary SHA-256 values into:
+
+```text
+.build/qualification/xcode-qualification-v1.json
+```
+
+For a faster native-architecture development check without producing an authoritative receipt:
+
+```bash
+./scripts/xcode-qualification.sh --quick
+```
+
+The qualification build produces an ad-hoc-signed development bundle at:
 
 ```text
 .build/dmg/CatCleaner.app
@@ -98,7 +108,7 @@ All of the following must be completed with **CatCleaner-owned** identities:
 10. If Homebrew distribution is desired, create a CatCleaner-specific cask and
     repository; do not reuse the Mac Sai tap.
 11. Replace all temporary/generic branding with CatCleaner-owned visual assets.
-12. Run the full Xcode CI suite and app-bundle identity checks.
+12. Run `./scripts/xcode-qualification.sh --full` on the exact clean release source and preserve the matching qualification receipt.
 13. Perform a clean-machine install/uninstall smoke test.
 14. Verify Gatekeeper, notarization, stapling, Full Disk Access behavior, login
     item registration, and menu helper identity.

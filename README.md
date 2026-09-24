@@ -120,7 +120,7 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 - 完整 `MacClean` app build：會因缺少 `SwiftUIMacros` plugin 失敗
 - XCTest：會因 Command Line Tools 環境缺少完整 `XCTest` framework 失敗
 
-完整 App build / XCTest 需要安裝完整 Xcode，並以 Xcode developer directory 執行。
+完整 App build / XCTest 需要安裝完整 Xcode，並以 Xcode developer directory 執行。安裝本身不直接解除 release gate；還必須由 `./scripts/xcode-qualification.sh --full` 對目前乾淨 HEAD/tree 跑完 XCTest、完整功能 gate、universal app build 與 bundle 驗證，產生 `.build/qualification/xcode-qualification-v1.json`。
 
 功能完成度與公開發佈採兩條獨立 gate：
 
@@ -139,12 +139,16 @@ cd ~/Documents/CatCleaner
 swift build --target MacCleanKit
 ```
 
-完整 Xcode 安裝後可執行：
+完整 Xcode 安裝後優先執行 one-shot qualification：
 
 ```bash
-./scripts/build-preflight.sh --app
-./scripts/test.sh
-./scripts/build-dmg.sh --app-only
+./scripts/xcode-qualification.sh --full
+```
+
+它會依序執行 app/tests preflight、XCTest coverage、完整功能 gate、universal `.app` build、bundle ID／版本／架構／codesign 驗證，並在全部通過後產生 SHA-bound qualification receipt。若只要快速開發驗證，可用：
+
+```bash
+./scripts/xcode-qualification.sh --quick
 ```
 
 建置/測試入口會自動尋找目前 `DEVELOPER_DIR`、`/Applications/Xcode.app`、`/Applications/Xcode-beta.app` 或 `~/Applications/Xcode.app`，並只對該命令設定 Xcode developer directory；**不會修改全機 `xcode-select`**。只有 Command Line Tools 時會在真正編譯前以明確訊息 fail-closed，核心仍可用 `swift build --target MacCleanKit`。

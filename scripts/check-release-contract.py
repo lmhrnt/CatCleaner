@@ -88,6 +88,8 @@ def validate_common(source: str, label: str) -> None:
     require(source, "CATCLEANER_APPLE_ID", label)
     require(source, "CATCLEANER_APP_PASSWORD", label)
     require(source, "CATCLEANER_TEAM_ID", label)
+    require(source, "runs-on: macos-15", label)
+    require(source, "./scripts/xcode-qualification.sh --full", label)
     require(source, 'profile="CatCleaner-CI-$' + '{GITHUB_RUN_ID}"', label)
     require(source, "xcrun notarytool store-credentials", label)
     require(source, "--keychain \"$keychain\"", label)

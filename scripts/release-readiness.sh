@@ -58,20 +58,36 @@ if [[ "$MODE" != "quiet" ]]; then
   echo
 fi
 
-# 1. Full Xcode is required for SwiftUI macros, XCTest, and final app build.
-# Resolve it locally without changing global xcode-select.
+# 1. Public release evidence must bind to an exact clean source tree.
+git_dirty="$(git status --porcelain)"
+if [[ -z "$git_dirty" ]]; then
+  pass "git_worktree" "clean"
+else
+  block "git_worktree" "working tree has tracked or untracked changes"
+fi
+
+# 2. Full Xcode is required for SwiftUI macros, XCTest, and final app build.
+# Installation alone is not sufficient: a full qualification receipt must bind
+# the current HEAD/tree, Xcode version, and built app binary hashes.
 set +e
 developer_dir="$(${SCRIPT_DIR}/resolve-xcode.sh 2>/dev/null)"
 xcode_rc=$?
 set -e
 if [[ $xcode_rc -eq 0 ]] && [[ -n "$developer_dir" ]]; then
   pass "full_xcode" "$developer_dir"
+  if python3 scripts/check-xcode-qualification.py \
+      --developer-dir "$developer_dir" >/dev/null 2>&1; then
+    pass "xcode_qualification" "full XCTest/universal-app receipt matches current source and toolchain"
+  else
+    block "xcode_qualification" "run ./scripts/xcode-qualification.sh --full on this exact clean source"
+  fi
 else
   current_dir="${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"
   block "full_xcode" "full Xcode is required; current=${current_dir:-<none>}"
+  info "xcode_qualification" "not evaluated until full Xcode is available"
 fi
 
-# 2. The product needs a CatCleaner-owned publication remote.
+# 3. The product needs a CatCleaner-owned publication remote.
 origin_url="$(git remote get-url origin 2>/dev/null || true)"
 if [[ -n "$origin_url" ]] && [[ "$origin_url" != *"MacSai"* ]]; then
   pass "catcleaner_origin" "$origin_url"
@@ -79,7 +95,7 @@ else
   block "catcleaner_origin" "no CatCleaner-owned origin remote is configured"
 fi
 
-# 3. Upstream must remain fetch-only/fail-closed for push.
+# 4. Upstream must remain fetch-only/fail-closed for push.
 upstream_fetch="$(git remote get-url upstream 2>/dev/null || true)"
 upstream_push="$(git remote get-url --push upstream 2>/dev/null || true)"
 if [[ "$upstream_fetch" == "https://github.com/iliyami/MacSai.git" ]] &&
@@ -89,7 +105,7 @@ else
   block "upstream_boundary" "upstream remote boundary is not in the expected fail-closed state"
 fi
 
-# 4. Public macOS distribution requires a real Developer ID Application cert.
+# 5. Public macOS distribution requires a real Developer ID Application cert.
 developer_id="$(
   security find-identity -v -p codesigning 2>/dev/null |
     sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' |
@@ -103,7 +119,7 @@ else
   pass "developer_id" "$developer_id"
 fi
 
-# 5. Release/signing workflows may be checked in before credentials exist, but
+# 6. Release/signing workflows may be checked in before credentials exist, but
 # they must satisfy the executable fail-closed contract enforced in CI.
 if python3 scripts/check-release-contract.py --scope release >/dev/null 2>&1; then
   pass "release_workflow" "fail-closed publication contract verified"
@@ -117,7 +133,7 @@ else
   block "signing_workflow" "signing workflow failed the fail-closed verification contract"
 fi
 
-# 6. Release build sources must remain version-consistent.
+# 7. Release build sources must remain version-consistent.
 if bash scripts/check-version-sync.sh >/dev/null 2>&1; then
   version="$(tr -d '[:space:]' < VERSION)"
   pass "version_sync" "$version"
@@ -125,17 +141,14 @@ else
   block "version_sync" "VERSION and MCConstants.appVersion differ"
 fi
 
-# 7. Runtime identity must not regress to upstream names.
-forbidden="$(
-  rg -n     'com\.macclean|macclean://|brew upgrade --cask mac-sai|Mac Sai\.app|MacSai-'     Sources Package.swift     scripts/build-dmg.sh     scripts/dev-install.sh     scripts/install.sh     scripts/uninstall.sh     scripts/setup-homebrew-tap.sh     2>/dev/null || true
-)"
-if [[ -z "$forbidden" ]]; then
+# 8. Runtime identity must not regress to upstream names.
+if bash scripts/check-runtime-identity.sh >/dev/null 2>&1; then
   pass "runtime_identity" "no upstream runtime/release identifiers"
 else
   block "runtime_identity" "upstream runtime identity references remain"
 fi
 
-# 8. Public branding. Generic icon is technically runnable, but not a polished
+# 9. Public branding. Generic icon is technically runnable, but not a polished
 # product release. If an icon exists, reject the exact upstream Mac Sai asset.
 upstream_icon_sha="216276c7544ea99500930c333b55bb740689c0b60c079ce7b4b1e4cf459ede9f"
 if [[ -f Resources/AppIcon.icns ]]; then
@@ -149,7 +162,7 @@ else
   warn "product_icon" "no custom CatCleaner main icon; generic macOS icon will be used"
 fi
 
-# 9. These are not required for a first notarized DMG, but are required before
+# 10. These are not required for a first notarized DMG, but are required before
 # enabling the corresponding product/distribution features.
 if rg -q 'public static let updateChecksEnabled = false' Sources/MacCleanKit/Constants.swift; then
   warn "self_update" "self-update remains fail-closed"
