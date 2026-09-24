@@ -164,23 +164,37 @@ public struct SidebarView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            List(selection: $selection) {
-                ForEach(SidebarSection.allCases) { section in
-                    if section == .main {
-                        ForEach(section.items) { item in
-                            sidebarRow(item)
-                        }
-                    } else {
-                        sectionHeader(section)
-                        if !collapsedSections.contains(section) {
-                            ForEach(section.items) { item in
-                                sidebarRow(item)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(SidebarSection.allCases) { section in
+                            if section == .main {
+                                ForEach(section.items) { item in
+                                    sidebarRow(item)
+                                        .id(item)
+                                }
+                            } else {
+                                sectionHeader(section)
+                                if !collapsedSections.contains(section) {
+                                    ForEach(section.items) { item in
+                                        sidebarRow(item)
+                                            .id(item)
+                                    }
+                                }
                             }
                         }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                }
+                .scrollIndicators(.automatic)
+                .onChange(of: selection) { _, newValue in
+                    guard let newValue, newValue != .settings else { return }
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        proxy.scrollTo(newValue, anchor: .center)
+                    }
                 }
             }
-            .listStyle(.sidebar)
 
             Divider().opacity(0.4)
 
@@ -204,7 +218,9 @@ public struct SidebarView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
-        .padding(.top, 6)
+        .padding(.horizontal, 2)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.18)) {
@@ -212,8 +228,6 @@ public struct SidebarView: View {
                 else { collapsedSections.insert(section) }
             }
         }
-        .selectionDisabled()
-        .listRowSeparator(.hidden)
     }
 
     /// Pinned footer: opens the in-app Settings page. Replaced the old
@@ -250,13 +264,29 @@ public struct SidebarView: View {
     }
 
     private func sidebarRow(_ item: SidebarItem) -> some View {
-        Label {
-            Text(item.title)
-                .fontWeight(item == .smartScan ? .semibold : .regular)
-        } icon: {
-            Image(systemName: item.icon)
-                .foregroundStyle(item.theme.accentColor)
+        Button {
+            selection = item
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: item.icon)
+                    .frame(width: 16)
+                    .foregroundStyle(item.theme.accentColor)
+
+                Text(item.title)
+                    .font(.system(size: 13, weight: item == .smartScan ? .semibold : .regular))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .tag(item)
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(selection == item ? Color.primary.opacity(0.10) : Color.clear)
+        )
+        .accessibilityAddTraits(selection == item ? .isSelected : [])
     }
 }
