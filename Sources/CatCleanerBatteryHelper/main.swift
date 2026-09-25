@@ -9,17 +9,17 @@ private let logger = Logger(
     category: "battery-helper"
 )
 
-private final class SigningPeerValidator {
+private final class SigningPeerValidator: @unchecked Sendable {
     private let helperLeafCertificate: Data?
 
     init() {
         helperLeafCertificate = Self.leafCertificateDataForSelf()
     }
 
-    func validate(_ connection: NSXPCConnection) -> Bool {
-        guard connection.effectiveUserIdentifier != 0,
+    func validate(effectiveUserIdentifier uid: uid_t, processIdentifier pid: pid_t) -> Bool {
+        guard uid != 0,
               let helperLeafCertificate,
-              let clientCode = Self.code(forPID: connection.processIdentifier),
+              let clientCode = Self.code(forPID: pid),
               SecCodeCheckValidity(
                 clientCode,
                 SecCSFlags(rawValue: kSecCSStrictValidate),
@@ -292,13 +292,31 @@ private final class BatteryHelperService: NSObject, BatteryHelperXPCProtocol {
 }
 
 private final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
-    private let validator = SigningPeerValidator()
+    private let validationQueue: DispatchQueue
+    private let validator: SigningPeerValidator
+
+    override init() {
+        let queue = DispatchQueue(
+            label: "com.catcleaner.battery-helper.signing-validation",
+            qos: .userInitiated
+        )
+        validationQueue = queue
+        validator = queue.sync { SigningPeerValidator() }
+        super.init()
+    }
 
     func listener(
         _ listener: NSXPCListener,
         shouldAcceptNewConnection newConnection: NSXPCConnection
     ) -> Bool {
-        let validated = validator.validate(newConnection)
+        let uid = newConnection.effectiveUserIdentifier
+        let pid = newConnection.processIdentifier
+        let validated = validationQueue.sync {
+            validator.validate(
+                effectiveUserIdentifier: uid,
+                processIdentifier: pid
+            )
+        }
         guard validated else {
             logger.error(
                 "Rejected XPC client pid=\(newConnection.processIdentifier, privacy: .public)"

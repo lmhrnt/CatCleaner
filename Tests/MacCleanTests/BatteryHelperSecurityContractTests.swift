@@ -41,11 +41,16 @@ final class BatteryHelperSecurityContractTests: XCTestCase {
     func testHelperValidatesCatCleanerClientIdentityAndSameCertificate() throws {
         let helper = try source("Sources/CatCleanerBatteryHelper/main.swift")
 
-        XCTAssertTrue(helper.contains("connection.processIdentifier"))
+        XCTAssertTrue(helper.contains("newConnection.processIdentifier"))
         XCTAssertTrue(helper.contains("SecCodeCopyGuestWithAttributes"))
         XCTAssertTrue(helper.contains("info.identifier == MCConstants.bundleIdentifier"))
         XCTAssertTrue(helper.contains("info.leafCertificate == helperLeafCertificate"))
         XCTAssertTrue(helper.contains("kSecCSStrictValidate"))
+        XCTAssertTrue(helper.contains("com.catcleaner.battery-helper.signing-validation"))
+        XCTAssertTrue(helper.contains("validationQueue.sync"))
+        XCTAssertTrue(helper.contains("effectiveUserIdentifier: uid"))
+        XCTAssertTrue(helper.contains("processIdentifier: pid"))
+        XCTAssertFalse(helper.contains("validator.validate(newConnection)"))
     }
 
     func testHelperRefusesCompetingBatteryControllers() throws {
