@@ -119,7 +119,12 @@ required_files = [
     "Sources/MacClean/App/BatteryCareIntents.swift",
     "Sources/MacCleanKit/CleaningAutomation.swift",
     "Sources/MacClean/Services/CleaningAutomationService.swift",
+    "Sources/MacClean/Services/BatteryHardwareHelperManager.swift",
+    "Sources/MacCleanKit/BatteryHelperXPC.swift",
+    "Sources/CatCleanerBatteryHelper/main.swift",
     "Tests/MacCleanKitTests/BatteryCareTests.swift",
+    "Tests/MacCleanKitTests/BatteryHelperContractTests.swift",
+    "Tests/MacCleanTests/BatteryHelperSecurityContractTests.swift",
     "Tests/MacCleanTests/BatterySMCCapabilityTests.swift",
     "Tests/MacCleanKitTests/CleaningAutomationTests.swift",
 ]
@@ -156,6 +161,18 @@ checks = {
     "automation_policy": (
         "Sources/MacCleanKit/CleaningAutomation.swift",
         ["moveSafeCachesToTrash", "safeCacheRoots", "shouldEmptyTrashItem"],
+    ),
+    "battery_helper_contract": (
+        "Sources/MacCleanKit/BatteryHelperXPC.swift",
+        ["probeSameValueWrite", "fixedProbeKey = \"CHIE\""],
+    ),
+    "battery_helper_security": (
+        "Sources/CatCleanerBatteryHelper/main.swift",
+        ["SecCodeCopyGuestWithAttributes", "helperLeafCertificate", "CompetingController.isRunning()"],
+    ),
+    "battery_helper_manager": (
+        "Sources/MacClean/Services/BatteryHardwareHelperManager.swift",
+        ["SMAppService.daemon", "options: .privileged", "probeSameValueWrite"],
     ),
 }
 

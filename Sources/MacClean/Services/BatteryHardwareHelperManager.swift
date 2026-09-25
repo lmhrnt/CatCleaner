@@ -68,7 +68,7 @@ final class BatteryHardwareHelperManager {
 
         status = service.status
         if let errorMessage {
-            helperStatusMessage = "註冊結果：\(errorMessage)"
+            helperStatusMessage = "註冊結果：" + errorMessage
         } else {
             helperStatusMessage = "helper 註冊要求已送出"
         }
@@ -95,9 +95,11 @@ final class BatteryHardwareHelperManager {
         }.value
 
         status = service.status
-        helperStatusMessage = errorMessage.map {
-            "停用結果：\($0)"
-        } ?? "helper 已停用"
+        if let errorMessage {
+            helperStatusMessage = "停用結果：" + errorMessage
+        } else {
+            helperStatusMessage = "helper 已停用"
+        }
         lastProbePassed = false
     }
 
