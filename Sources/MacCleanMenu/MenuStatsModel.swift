@@ -102,11 +102,9 @@ final class MenuStatsModel {
 
 /// Starts continuous stats polling at launch via the AppKit lifecycle, which
 /// (unlike the SwiftUI `MenuBarExtra` view hooks) fires reliably regardless of
-/// whether the popover is ever opened. `@preconcurrency` keeps the conformance
-/// building on CI's older SDK, where the delegate protocol isn't yet annotated
-/// `@MainActor`.
+/// whether the popover is ever opened.
 @MainActor
-final class MenuAppDelegate: NSObject, @preconcurrency NSApplicationDelegate {
+final class MenuAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MenuStatsModel.shared.start()
     }

@@ -32,15 +32,12 @@ public enum UniversalBinariesScanner {
         // and (if eligible) walk every Mach-O in the bundle — sequential
         // execution turns a Smart Scan into a multi-minute affair. Fan
         // out via DispatchQueue.concurrentPerform.
-        var results = [FileItem?](repeating: nil, count: apps.count)
-        let lock = NSLock()
+        let results = IndexedFileItemBuffer(count: apps.count)
         DispatchQueue.concurrentPerform(iterations: apps.count) { i in
             let item = thinnableItem(appURL: apps[i], host: host, policy: policy)
-            lock.lock()
-            results[i] = item
-            lock.unlock()
+            results.store(item, at: i)
         }
-        return results.compactMap { $0 }
+        return results.compacted()
     }
 
     /// Scans every directory macOS actually installs `.app` bundles into —
@@ -206,5 +203,26 @@ public enum UniversalBinariesScanner {
             return [output[r.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)]
         }
         return []
+    }
+}
+
+private final class IndexedFileItemBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [FileItem?]
+
+    init(count: Int) {
+        values = [FileItem?](repeating: nil, count: count)
+    }
+
+    func store(_ item: FileItem?, at index: Int) {
+        lock.lock()
+        values[index] = item
+        lock.unlock()
+    }
+
+    func compacted() -> [FileItem] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values.compactMap { $0 }
     }
 }

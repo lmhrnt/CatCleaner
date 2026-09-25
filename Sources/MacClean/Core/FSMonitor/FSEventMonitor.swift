@@ -63,7 +63,6 @@ public final class FSEventMonitor: @unchecked Sendable {
     // MARK: - Get changes since event ID (for incremental scanning)
 
     public func getChangesSince(eventID: UInt64, paths: [String]) -> [FSChange] {
-        var collected: [FSChange] = []
         let semaphore = DispatchSemaphore(value: 0)
 
         var context = FSEventStreamContext()
@@ -85,21 +84,24 @@ public final class FSEventMonitor: @unchecked Sendable {
             )
         ) else { return [] }
 
+        box.stream = stream
         let historyQueue = DispatchQueue(label: "com.catcleaner.fshistory")
         FSEventStreamSetDispatchQueue(stream, historyQueue)
         FSEventStreamStart(stream)
 
         // Give it a moment to replay events then stop
         historyQueue.asyncAfter(deadline: .now() + 1.0) {
-            FSEventStreamStop(stream)
-            FSEventStreamInvalidate(stream)
-            FSEventStreamRelease(stream)
-            collected = box.changes
+            if let replayStream = box.stream {
+                FSEventStreamStop(replayStream)
+                FSEventStreamInvalidate(replayStream)
+                FSEventStreamRelease(replayStream)
+                box.stream = nil
+            }
             semaphore.signal()
         }
 
         semaphore.wait()
-        return collected
+        return box.changes
     }
 
     // MARK: - Compute invalidated paths
@@ -133,6 +135,7 @@ public final class FSEventMonitor: @unchecked Sendable {
 // Box to collect changes from the historical callback
 private final class ChangesBox: @unchecked Sendable {
     var changes: [FSEventMonitor.FSChange] = []
+    var stream: FSEventStreamRef?
 }
 
 // Live monitoring callback

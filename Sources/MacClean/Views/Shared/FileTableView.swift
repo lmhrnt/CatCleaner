@@ -76,13 +76,10 @@ struct FileTableView: NSViewRepresentable {
 
     // MARK: - Coordinator
 
-    // @MainActor + @preconcurrency: AppKit calls these delegate methods on the
-    // main thread, but older SDKs (CI's macos-15 Xcode) don't annotate the
-    // protocols as @MainActor, so without this the methods compile as
-    // nonisolated and every AppKit call inside errors under Swift 6.
+    // AppKit invokes these delegate/data-source callbacks on the main thread.
     @MainActor
-    final class Coordinator: NSObject, @preconcurrency NSTableViewDataSource,
-                             @preconcurrency NSTableViewDelegate, @preconcurrency NSMenuDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource,
+                             NSTableViewDelegate, NSMenuDelegate {
         var rows: [FileListRow] = []
         weak var tableView: NSTableView?
         var onToggleItem: (URL) -> Void = { _ in }

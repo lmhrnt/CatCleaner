@@ -90,10 +90,10 @@ struct MacCleanMenuApp: App {
             )
         case .percent:
             guard let level = stats.batteryLevel else { return "--" }
-            return "(Int((level * 100).rounded()))%"
+            return "\(Int((level * 100).rounded()))%"
         case .temperature:
             guard let temperature = stats.batteryTemperature else { return "--" }
-            return "(Int(temperature.rounded()))°C"
+            return "\(Int(temperature.rounded()))°C"
         case .minimal:
             return nil
         }

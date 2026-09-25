@@ -6,7 +6,7 @@ import MacCleanTestSupport
 
 final class LaunchAgentsManagerTests: XCTestCase {
     func testToggleRejectsPlistOutsideUserLaunchAgents() async throws {
-        try await TestFixtures.withTempDir { dir in
+        try TestFixtures.withTempDir { dir in
             let plistURL = dir.appending(path: "com.example.zoom.plist")
             let plist: [String: Any] = ["Label": "com.example.zoom", "Disabled": false]
             let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)

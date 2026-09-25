@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import MacCleanKit
 
 struct AppPermissionsView: View {
@@ -262,6 +263,6 @@ struct AppPermissionsView: View {
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.client) {
             return NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
         }
-        return NSWorkspace.shared.icon(forFileType: "app")
+        return NSWorkspace.shared.icon(for: UTType.application)
     }
 }

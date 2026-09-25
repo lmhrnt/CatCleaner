@@ -185,7 +185,7 @@ final class TargetedScannerTests: XCTestCase {
     }
 
     func testReadableEmptyDirectoryIsNotPermissionDenied() async throws {
-        try await TestFixtures.withTempDir { dir in
+        await TestFixtures.withTempDir { dir in
             let outcome = await TargetedScanner().scanReportingPermissions(
                 targets: [ScanTarget(path: dir, recursive: true)]
             )

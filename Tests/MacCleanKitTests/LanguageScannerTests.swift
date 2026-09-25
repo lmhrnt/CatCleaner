@@ -71,7 +71,7 @@ final class LanguageScannerTests: XCTestCase {
     }
 
     func testEmptyRootReturnsEmpty() throws {
-        try TestFixtures.withTempDir { root in
+        TestFixtures.withTempDir { root in
             let result = scanner.discoverLproj(in: [root])
             XCTAssertTrue(result.isEmpty)
         }
