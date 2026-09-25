@@ -80,24 +80,17 @@ CatCleaner 將「功能是否完成」與「能否公開發佈」分開驗證：
 
 ## 目前建置驗證狀態
 
-本機目前只選到：
+本機目前已具備完整 Xcode 27.0，且 CatCleaner 的本機自用與 CI gate 均已實際跑通：
 
-```text
-/Library/Developer/CommandLineTools
-```
-
-精確驗證：
-
-| Gate | 結果 | 原因 |
+| Gate | 結果 | 說明 |
 |---|---|---|
-| `swift build --target MacCleanKit` | ✅ PASS | Core 不需要 SwiftUI macro plugin |
-| `swift build --product MacCleanMenu` | ❌ RC 1 | CLT 缺 `SwiftUIMacros.StateMacro` plugin |
-| `swift build --product MacClean` | ❌ RC 1 | CLT 缺 `SwiftUIMacros.StateMacro` plugin |
-| `swift test` | ❌ RC 1 | CLT 無法解析 `XCTest` |
-| Vision API minimal typecheck | ✅ PASS | 已驗證 Revision 1 / scaleFit / computeDistance API |
-| 多個非 SwiftUI pipeline semantic typecheck | ✅ PASS | Developer Cleanup、Similar Photos、Large Files 等 |
+| `swift build --target MacCleanKit` | ✅ PASS | Core build |
+| `./scripts/xcode-qualification.sh --full` | ✅ PASS | fresh XCTest + coverage、`FEATURE_COMPLETE_LOCAL`、universal app build、bundle identity／架構／codesign |
+| `./scripts/local-app-readiness.sh` | ✅ PASS | `LOCAL_APP_READY`，`required_blockers=0` |
+| GitHub `Build, Test & Bundle` | ✅ PASS | build、XCTest + coverage、native app bundle、bundle identity、safety-critical files |
+| GitHub `Safety & Downstream Isolation Audit` | ✅ PASS | audit tooling、secret scan、runtime identity、Smart Scan fail-closed、pipe order、deletion/network surface |
 
-這是**建置環境限制**，不是目前觀察到的 CatCleaner core compile failure。完整 App / XCTest 最終 gate 需要完整 Xcode。
+本機主要目標仍是自用 App，因此 Developer ID、notarization、App Store 與 Homebrew 發佈不列為本機功能 blocker；公開發佈仍由 `scripts/release-readiness.sh` 獨立 fail-closed。
 
 ## 建置 preflight
 

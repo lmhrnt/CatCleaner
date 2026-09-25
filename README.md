@@ -18,12 +18,11 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - 檔案 / 資料夾
   - 效能 / 網路 / 音訊 / 影片等
 - 新增卸載器「已移除 App 殘留」獨立頁：
-  - 重用既有 `AppLeftoversScanner` 與 Trash-first CleaningEngine
-  - 預設零選取，逐項人工勾選
-  - 只掃 Caches / Logs / HTTPStorages / Saved Application State / WebKit
-  - Preferences / Containers / Group Containers / Keychain 不列入 orphan 清理
-  - 同 vendor namespace 仍有已安裝 App 時保守保留 shared service/cache
-  - reverse-DNS 格式收緊，避免 `catdesk-supervisor.launchd.err` 類一般 log 檔誤判
+  - 重用既有 `AppLeftoversScanner` 與 Trash-first CleaningEngine，不另寫更激進的 orphan 判定
+  - 只掃 Caches / Logs / HTTPStorages / Saved Application State / WebKit；Preferences / Containers / Group Containers / Keychain 不列入清理
+  - 以標準 Applications 位置 + LaunchServices 雙重確認 App 是否仍存在；搬到其他資料夾或外接磁碟但仍已註冊的 App 也會阻擋誤判
+  - 同 vendor namespace 仍有已安裝 App 時保守保留 shared service/cache；只接受 reverse-DNS bundle ID，避免一般 log 檔誤判
+  - 預設零選取；清理前會 fresh orphan scan，人工確認後才走 `CleanActions -> CleaningEngine -> macOS Trash`，可從垃圾桶復原
 - Space Lens 磁碟分析強化：
   - 掃描進度改為不定進度 + 實際已枚舉項目數，不再顯示固定 50% 的假百分比
   - 可切換「個人資料夾」與目前已掛載磁碟/磁碟映像
@@ -38,29 +37,12 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - 由 CatCleaner 關閉的 login item 會保留為 off 狀態，可再次開啟；若使用者在系統設定外部重新啟用，remembered 狀態會自動清除
   - user LaunchAgent 狀態改以 `launchctl print-disabled` 為真實來源；`enable/disable` 持久化狀態，`bootstrap/bootout` 讓目前登入 session 立即生效
   - LaunchAgent 只允許修改 `~/Library/LaunchAgents` 直屬 regular `.plist`，缺 `Label`、巢狀路徑、symlink 與 system LaunchAgent/Daemon 都維持只讀
-- 卸載器新增「已移除 App 殘留」獨立頁：
-  - 只掃描 Caches、Logs、HTTPStorages、Saved Application State、WebKit 等安全殘留位置
-  - 只接受 reverse-DNS bundle ID，並保護 Apple / shared framework / SwiftPM 基礎設施
-  - 同 vendor sibling 採保守保留，避免把共享 updater/framework 當成孤兒
-  - 以標準 Applications 目錄 + LaunchServices 雙重交叉檢查；搬到其他資料夾或外接磁碟但仍已註冊的 App 也能阻擋誤判
-  - 預設零選取；人工勾選後仍走 CleaningEngine Trash-first，可從垃圾桶復原
 - 強化「大型檔案」：
   - 保留 50 MB 門檻與手動選取
   - 新增影片、音訊、圖片、文件、壓縮檔、安裝套件、磁碟映像、虛擬機、iPhone/iPad 備份、其他分類
   - MobileSync backup 與 VM package 以整包顯示，不拆成內部檔案
   - VM/iOS backup 只掃 bounded 已知位置，不遞迴整個 ~/Library
   - 所有大型/特殊資料仍預設零選取，清理走既有 Trash-first + SafetyGuard
-- 卸載器新增「已移除 App 殘留」獨立頁籤：
-  - 重用既有 AppLeftoversScanner 與 bundle-ID lineage 判定
-  - 只掃 Caches、Logs、HTTPStorages、Saved Application State、WebKit 等安全頂層位置
-  - Preferences、Containers、Group Containers、Keychain 不列為孤立殘留
-  - LaunchServices 與標準 App 安裝位置雙重交叉檢查
-  - 預設零選取，人工勾選後才走 CleaningEngine Trash-first，可從垃圾桶復原
-- 卸載器新增「已移除 App 殘留」頁籤：
-  - 重用既有 `AppLeftoversScanner`，只掃 Caches、Logs、HTTPStorages、Saved Application State、WebKit 頂層
-  - 交叉檢查標準安裝目錄與 LaunchServices，避免把仍安裝/已搬移的 App 判成 orphan
-  - Preferences、Containers、Group Containers、Keychain 不納入 orphan 一鍵清理
-  - 預設零選取；人工勾選後仍走 `CleanActions -> CleaningEngine -> macOS Trash`
 - 新增「相似照片」review-only 模組：
   - Apple Vision feature print 比較
   - 固定 Revision 1 以避免 SDK 升級時演算法默默漂移
@@ -68,26 +50,6 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
   - complete-link 保守分群，避免 A≈B、B≈C 就誤把 A/B/C 全部合成一群
   - 嚴格／平衡／寬鬆三個人工審查門檻
   - 不預選、不刪除、不丟垃圾桶、不 APFS consolidate
-- 新增「已移除 App 殘留」專頁：
-  - 重用既有 bundle-ID orphan detector，而不是名稱模糊比對
-  - 只掃 Caches、Logs、HTTPStorages、Saved Application State、WebKit 頂層
-  - Preferences、Containers、Group Containers、Keychain 不列為孤立殘留
-  - 已安裝 App + LaunchServices 雙重交叉檢查
-  - vendor namespace / helper lineage 保守 keep
-  - 預設零選取，人工勾選後只移到 macOS 垃圾桶
-- 新增「已移除 App 殘留」獨立頁籤：
-  - 重用既有 AppLeftoversScanner 與 reverse-DNS bundle ID lineage 判定
-  - 掃描範圍僅限 Caches、Logs、HTTPStorages、Saved Application State、WebKit
-  - Preferences、Containers、Group Containers、Keychain 不納入 orphan 一鍵清理
-  - 以標準安裝目錄 + LaunchServices 雙重確認 App 是否仍存在
-  - 預設零選取；清理前再做一次 fresh orphan scan，避免 App 重新安裝後誤刪
-  - 清理一律走 CleaningEngine Trash-first，可從 macOS 垃圾桶復原
-- 卸載器新增「已移除 App 殘留」頁籤：
-  - 重用現有 AppLeftoversScanner，不另寫更激進的 orphan 判定
-  - 只掃 Caches、Logs、HTTPStorages、Saved Application State、WebKit 的頂層項目
-  - 以已安裝 App bundle ID + LaunchServices 做雙重 fail-closed 交叉檢查
-  - Preferences、Containers、Group Containers、Keychain 不列為 orphan 垃圾
-  - 預設零選取；人工勾選後一律經既有 CleaningEngine 移到 macOS 垃圾桶
 - 新增「開發者清理」保守執行模組：
   - CatDesk build/recovery/snapshots
   - Codex cache/sessions
@@ -113,12 +75,12 @@ CatCleaner 是一個以 **Mac Sai** 為上游基礎、獨立維護的 macOS 清�
 
 ## Build 狀態
 
-目前此 Mac 只安裝 Apple Command Line Tools，沒有完整 Xcode。因此：
+目前此 Mac 已具備完整 Xcode 27.0 開發環境，且本機與 GitHub CI 都能執行完整建置／測試 gate：
 
-- `swift build --target MacCleanKit`：PASS
-- CatCleaner SwiftUI parser / semantic checks：PASS
-- Xcode 27.0 app/tests preflight：PASS
-- XCTest：目前 source 359 個 `MacCleanTests` 與 600 個 `MacCleanKitTests`（1 skipped）皆 0 failure
+- `./scripts/xcode-qualification.sh --full`：PASS；包含 fresh XCTest + coverage、完整功能 gate、universal app build、bundle identity／架構／codesign 驗證
+- `./scripts/local-app-readiness.sh`：`LOCAL_APP_READY`，`required_blockers=0`
+- GitHub `CatCleaner CI`：`Build, Test & Bundle` 與 `Safety & Downstream Isolation Audit` 皆 PASS
+- 本機安裝版使用 `CatCleaner Local Code Signing`，供本機自用；Developer ID／notarization 仍屬可選的公開發佈基礎設施
 
 完整 App build / XCTest 由 `./scripts/xcode-qualification.sh --full` 對目前乾淨 HEAD/tree 執行。full mode 會先移除 `.build/out` 的舊 SwiftPM compiled products，避免 stale XCTest binary 被誤當成目前 source 的結果；全部通過後會把已驗證的 universal `CatCleaner.app` 封存在 `.build/qualification/CatCleaner.app`，並產生 `.build/qualification/xcode-qualification-v1.json`。後續本機 native rebuild 不會覆蓋這份 qualification snapshot。
 
