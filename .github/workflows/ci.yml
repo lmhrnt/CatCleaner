@@ -87,6 +87,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Ensure audit tooling
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            brew install ripgrep
+          fi
+          rg --version
+
       - name: Check for likely hardcoded secrets
         run: |
           if rg -n --glob '*.swift'             '(api[_-]?key|client[_-]?secret|password|token)\s*[:=]\s*"[^"]{8,}"'             Sources; then
