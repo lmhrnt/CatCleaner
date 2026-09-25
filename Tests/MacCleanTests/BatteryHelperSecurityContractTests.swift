@@ -47,9 +47,13 @@ final class BatteryHelperSecurityContractTests: XCTestCase {
         XCTAssertTrue(helper.contains("info.leafCertificate == helperLeafCertificate"))
         XCTAssertTrue(helper.contains("kSecCSStrictValidate"))
         XCTAssertTrue(helper.contains("com.catcleaner.battery-helper.signing-validation"))
-        XCTAssertTrue(helper.contains("validationQueue.sync"))
+        XCTAssertTrue(helper.contains("SigningValidationState"))
+        XCTAssertTrue(helper.contains("ValidationResultBox"))
+        XCTAssertTrue(helper.contains("validationQueue.async"))
+        XCTAssertTrue(helper.contains("DispatchSemaphore(value: 0)"))
         XCTAssertTrue(helper.contains("effectiveUserIdentifier: uid"))
         XCTAssertTrue(helper.contains("processIdentifier: pid"))
+        XCTAssertFalse(helper.contains("validationQueue.sync"))
         XCTAssertFalse(helper.contains("validator.validate(newConnection)"))
     }
 

@@ -103,6 +103,27 @@ private final class SigningPeerValidator: @unchecked Sendable {
     }
 }
 
+private final class SigningValidationState: @unchecked Sendable {
+    lazy var validator = SigningPeerValidator()
+}
+
+private final class ValidationResultBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    func store(_ newValue: Bool) {
+        lock.lock()
+        value = newValue
+        lock.unlock()
+    }
+
+    func load() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+}
+
 private enum TrustedSMCTool {
     static func locate() -> URL? {
         for rawPath in ["/usr/local/bin/smc", "/opt/homebrew/bin/smc", "/usr/bin/smc"] {
@@ -292,18 +313,11 @@ private final class BatteryHelperService: NSObject, BatteryHelperXPCProtocol {
 }
 
 private final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
-    private let validationQueue: DispatchQueue
-    private let validator: SigningPeerValidator
-
-    override init() {
-        let queue = DispatchQueue(
-            label: "com.catcleaner.battery-helper.signing-validation",
-            qos: .userInitiated
-        )
-        validationQueue = queue
-        validator = queue.sync { SigningPeerValidator() }
-        super.init()
-    }
+    private let validationQueue = DispatchQueue(
+        label: "com.catcleaner.battery-helper.signing-validation",
+        qos: .userInitiated
+    )
+    private let validationState = SigningValidationState()
 
     func listener(
         _ listener: NSXPCListener,
@@ -311,12 +325,19 @@ private final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
     ) -> Bool {
         let uid = newConnection.effectiveUserIdentifier
         let pid = newConnection.processIdentifier
-        let validated = validationQueue.sync {
-            validator.validate(
-                effectiveUserIdentifier: uid,
-                processIdentifier: pid
+        let result = ValidationResultBox()
+        let finished = DispatchSemaphore(value: 0)
+        validationQueue.async { [validationState] in
+            result.store(
+                validationState.validator.validate(
+                    effectiveUserIdentifier: uid,
+                    processIdentifier: pid
+                )
             )
+            finished.signal()
         }
+        finished.wait()
+        let validated = result.load()
         guard validated else {
             logger.error(
                 "Rejected XPC client pid=\(newConnection.processIdentifier, privacy: .public)"
