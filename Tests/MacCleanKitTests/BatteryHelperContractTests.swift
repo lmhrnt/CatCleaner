@@ -24,6 +24,8 @@ final class BatteryHelperContractTests: XCTestCase {
     func testHexByteNormalizationRejectsNonByteInput() {
         XCTAssertEqual(BatteryHelperProbePolicy.normalizedHexByte("0x0A"), "0a")
         XCTAssertEqual(BatteryHelperProbePolicy.normalizedHexByte("ff"), "ff")
+        XCTAssertEqual(BatteryHelperProbePolicy.normalizedHexByte("00)"), "00")
+        XCTAssertEqual(BatteryHelperProbePolicy.normalizedHexByte("(0x0A)"), "0a")
         XCTAssertNil(BatteryHelperProbePolicy.normalizedHexByte(""))
         XCTAssertNil(BatteryHelperProbePolicy.normalizedHexByte("0000"))
         XCTAssertNil(BatteryHelperProbePolicy.normalizedHexByte("GG"))

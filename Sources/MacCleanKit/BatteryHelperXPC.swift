@@ -35,7 +35,9 @@ public enum BatteryHelperProbePolicy {
 
     public static func normalizedHexByte(_ value: String) -> String? {
         let compact = value
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines.union(.punctuationCharacters)
+            )
             .lowercased()
             .replacingOccurrences(of: "0x", with: "")
         guard compact.count == 2,
