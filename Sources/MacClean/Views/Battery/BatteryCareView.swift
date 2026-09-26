@@ -218,6 +218,11 @@ struct BatteryCareView: View {
                 Button("重新檢查 helper") {
                     Task { await helperManager.refresh() }
                 }
+                Button("重新註冊 helper") {
+                    Task { await helperManager.reregister() }
+                }
+                .help("App 更新後 helper 無法重新啟動時，重新建立系統背景服務註冊")
+
                 Button("零變更寫入測試") {
                     Task { await helperManager.probeSameValueWrite() }
                 }

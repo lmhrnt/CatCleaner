@@ -3,6 +3,16 @@ import Observation
 import ServiceManagement
 import MacCleanKit
 
+enum BatteryHelperRegistrationRepair {
+    static func perform(
+        unregister: () throws -> Void,
+        register: () throws -> Void
+    ) throws {
+        try unregister()
+        try register()
+    }
+}
+
 @MainActor
 @Observable
 final class BatteryHardwareHelperManager {
@@ -101,6 +111,41 @@ final class BatteryHardwareHelperManager {
             helperStatusMessage = "helper 已停用"
         }
         lastProbePassed = false
+        lastProbeMessage = nil
+    }
+
+    func reregister() async {
+        isBusy = true
+        defer { isBusy = false }
+
+        let errorMessage: String? = await Task.detached(priority: .userInitiated) {
+            let service = SMAppService.daemon(
+                plistName: MCConstants.batteryHelperLaunchDaemonPlistName
+            )
+            do {
+                try BatteryHelperRegistrationRepair.perform(
+                    unregister: { try service.unregister() },
+                    register: { try service.register() }
+                )
+                return nil
+            } catch {
+                return error.localizedDescription
+            }
+        }.value
+
+        status = service.status
+        lastProbePassed = false
+        lastProbeMessage = nil
+
+        if let errorMessage {
+            helperStatusMessage = "重新註冊結果：" + errorMessage
+            return
+        }
+
+        helperStatusMessage = "helper 重新註冊要求已送出"
+        if status == .enabled {
+            await refresh()
+        }
     }
 
     func openApprovalSettings() {
