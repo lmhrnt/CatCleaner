@@ -74,7 +74,11 @@ struct BatteryCareView: View {
             Spacer()
 
             Button("重新讀取") {
-                Task { await monitor.refresh() }
+                Task {
+                    async let monitorRefresh: Void = monitor.refresh()
+                    async let helperRefresh: Void = helperManager.refresh()
+                    _ = await (monitorRefresh, helperRefresh)
+                }
             }
         }
     }
@@ -169,8 +173,8 @@ struct BatteryCareView: View {
                             .font(.subheadline.weight(.semibold))
                         Spacer()
                         Text(helperManager.statusText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(.caption.weight(helperManager.needsRegistrationRepair ? .semibold : .regular))
+                            .foregroundStyle(helperManager.needsRegistrationRepair ? .orange : .secondary)
                     }
 
                     Text(helperManager.helperStatusMessage)
@@ -215,18 +219,30 @@ struct BatteryCareView: View {
                 }
 
             case .enabled:
-                Button("重新檢查 helper") {
-                    Task { await helperManager.refresh() }
+                if helperManager.needsRegistrationRepair {
+                    Button("修復 helper") {
+                        Task { await helperManager.reregister() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .help("重新建立系統背景服務註冊")
+
+                    Button("重新檢查 helper") {
+                        Task { await helperManager.refresh() }
+                    }
+                } else {
+                    Button("重新檢查 helper") {
+                        Task { await helperManager.refresh() }
+                    }
+                    Button("重新註冊 helper") {
+                        Task { await helperManager.reregister() }
+                    }
+                    .help("App 更新後 helper 無法重新啟動時，重新建立系統背景服務註冊")
                 }
-                Button("重新註冊 helper") {
-                    Task { await helperManager.reregister() }
-                }
-                .help("App 更新後 helper 無法重新啟動時，重新建立系統背景服務註冊")
 
                 Button("零變更寫入測試") {
                     Task { await helperManager.probeSameValueWrite() }
                 }
-                .disabled(monitor.competingController != nil)
+                .disabled(monitor.competingController != nil || !helperManager.canProbe)
 
                 Button("停用 helper", role: .destructive) {
                     Task { await helperManager.unregister() }
@@ -306,7 +322,7 @@ struct BatteryCareView: View {
                 }
 
                 if !monitor.snapshot.hardwareControlEnabled {
-                    Text("以上控制設定已可儲存；真正的 SMC 寫入會在 M5 helper 驗證通過後才啟用。")
+                    Text("以上控制設定已可儲存；真正的 SMC 寫入只會在目前韌體與安全策略允許時啟用。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

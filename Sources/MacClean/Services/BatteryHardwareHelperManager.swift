@@ -13,6 +13,15 @@ enum BatteryHelperRegistrationRepair {
     }
 }
 
+enum BatteryHelperTransportPolicy {
+    static func needsRegistrationRepair(
+        serviceEnabled: Bool,
+        transportAvailable: Bool
+    ) -> Bool {
+        serviceEnabled && !transportAvailable
+    }
+}
+
 @MainActor
 @Observable
 final class BatteryHardwareHelperManager {
@@ -27,23 +36,28 @@ final class BatteryHardwareHelperManager {
     private(set) var helperStatusMessage = "尚未查詢 helper"
     private(set) var lastProbeMessage: String?
     private(set) var lastProbePassed = false
+    private(set) var needsRegistrationRepair = false
 
     private init() {
         status = service.status
     }
 
     var statusText: String {
+        if needsRegistrationRepair, status == .enabled {
+            return "需要修復"
+        }
+
         switch status {
-        case .notRegistered: "尚未註冊"
-        case .enabled: "已啟用"
-        case .requiresApproval: "等待系統核准"
-        case .notFound: "App 內找不到 helper"
-        @unknown default: "未知狀態"
+        case .notRegistered: return "尚未註冊"
+        case .enabled: return "已啟用"
+        case .requiresApproval: return "等待系統核准"
+        case .notFound: return "App 內找不到 helper"
+        @unknown default: return "未知狀態"
         }
     }
 
     var canProbe: Bool {
-        status == .enabled
+        status == .enabled && !needsRegistrationRepair
     }
 
     func refresh() async {
@@ -51,6 +65,7 @@ final class BatteryHardwareHelperManager {
         guard status == .enabled else {
             helperStatusMessage = "helper \(statusText)"
             lastProbePassed = false
+            needsRegistrationRepair = false
             return
         }
 
@@ -112,6 +127,7 @@ final class BatteryHardwareHelperManager {
         }
         lastProbePassed = false
         lastProbeMessage = nil
+        needsRegistrationRepair = false
     }
 
     func reregister() async {
@@ -138,10 +154,12 @@ final class BatteryHardwareHelperManager {
         lastProbeMessage = nil
 
         if let errorMessage {
+            needsRegistrationRepair = status == .enabled
             helperStatusMessage = "重新註冊結果：" + errorMessage
             return
         }
 
+        needsRegistrationRepair = false
         helperStatusMessage = "helper 重新註冊要求已送出"
         if status == .enabled {
             await refresh()
@@ -156,6 +174,13 @@ final class BatteryHardwareHelperManager {
         guard status == .enabled else {
             lastProbePassed = false
             lastProbeMessage = "helper 尚未啟用"
+            needsRegistrationRepair = false
+            return
+        }
+        guard !needsRegistrationRepair else {
+            lastProbePassed = false
+            lastProbeMessage = "helper 需要重新註冊"
+            helperStatusMessage = "helper XPC 無法連線；請重新註冊 helper"
             return
         }
 
@@ -166,18 +191,31 @@ final class BatteryHardwareHelperManager {
             proxy.probeSameValueWrite(withReply: reply)
         }
 
+        needsRegistrationRepair = BatteryHelperTransportPolicy.needsRegistrationRepair(
+            serviceEnabled: status == .enabled,
+            transportAvailable: response.transportAvailable
+        )
         lastProbePassed = response.ok
         lastProbeMessage = response.message
-        helperStatusMessage = response.message
+        helperStatusMessage = repairAwareMessage(response)
     }
 
     private func applyStatus(_ response: BatteryHelperReply) {
-        helperStatusMessage = response.message
+        needsRegistrationRepair = BatteryHelperTransportPolicy.needsRegistrationRepair(
+            serviceEnabled: status == .enabled,
+            transportAvailable: response.transportAvailable
+        )
+        helperStatusMessage = repairAwareMessage(response)
 
         // A status check never proves SMC write capability.
         if !response.ok {
             lastProbePassed = false
         }
+    }
+
+    private func repairAwareMessage(_ response: BatteryHelperReply) -> String {
+        guard needsRegistrationRepair else { return response.message }
+        return response.message + "；請重新註冊 helper"
     }
 
     private func callHelper(
@@ -225,6 +263,7 @@ final class BatteryHardwareHelperManager {
 private struct BatteryHelperReply: Sendable {
     let ok: Bool
     let message: String
+    let transportAvailable: Bool
     let helperEUID: Int?
     let helperPID: Int?
     let clientValidated: Bool?
@@ -237,6 +276,7 @@ private struct BatteryHelperReply: Sendable {
         ok = dictionary[BatteryHelperResponseKey.ok] as? Bool ?? false
         message = dictionary[BatteryHelperResponseKey.message] as? String
             ?? "helper 沒有回傳訊息"
+        transportAvailable = true
         helperEUID = dictionary[BatteryHelperResponseKey.helperEUID] as? Int
         helperPID = dictionary[BatteryHelperResponseKey.helperPID] as? Int
         clientValidated = dictionary[BatteryHelperResponseKey.clientValidated] as? Bool
@@ -250,6 +290,7 @@ private struct BatteryHelperReply: Sendable {
         Self(
             ok: false,
             message: message,
+            transportAvailable: false,
             helperEUID: nil,
             helperPID: nil,
             clientValidated: nil,
@@ -263,6 +304,7 @@ private struct BatteryHelperReply: Sendable {
     private init(
         ok: Bool,
         message: String,
+        transportAvailable: Bool,
         helperEUID: Int?,
         helperPID: Int?,
         clientValidated: Bool?,
@@ -273,6 +315,7 @@ private struct BatteryHelperReply: Sendable {
     ) {
         self.ok = ok
         self.message = message
+        self.transportAvailable = transportAvailable
         self.helperEUID = helperEUID
         self.helperPID = helperPID
         self.clientValidated = clientValidated
