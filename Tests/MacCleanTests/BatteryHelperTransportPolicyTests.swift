@@ -2,6 +2,10 @@ import XCTest
 @testable import MacClean
 
 final class BatteryHelperTransportPolicyTests: XCTestCase {
+    func testTransportTimeoutIsBounded() {
+        XCTAssertEqual(BatteryHelperTransportPolicy.responseTimeoutSeconds, 3.0)
+    }
+
     func testEnabledServiceNeedsRepairWhenTransportIsUnavailable() {
         XCTAssertTrue(
             BatteryHelperTransportPolicy.needsRegistrationRepair(
@@ -41,6 +45,9 @@ final class BatteryHelperTransportPolicyTests: XCTestCase {
         XCTAssertTrue(manager.contains("transportAvailable: false"))
         XCTAssertTrue(manager.contains("repairAwareMessage(response)"))
         XCTAssertTrue(manager.contains("guard !needsRegistrationRepair else"))
+        XCTAssertTrue(manager.contains("helper XPC 連線逾時"))
+        XCTAssertTrue(manager.contains("XPCConnectionLifetime"))
+        XCTAssertTrue(manager.contains("asyncAfter"))
     }
 
     private var repoRoot: URL {

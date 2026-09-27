@@ -14,6 +14,8 @@ enum BatteryHelperRegistrationRepair {
 }
 
 enum BatteryHelperTransportPolicy {
+    static let responseTimeoutSeconds: Double = 3.0
+
     static func needsRegistrationRepair(
         serviceEnabled: Bool,
         transportAvailable: Bool
@@ -234,9 +236,18 @@ final class BatteryHardwareHelperManager {
             )
 
             let once = ContinuationOnce(continuation)
+            let lifetime = XPCConnectionLifetime(connection)
+
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(
+                deadline: .now() + BatteryHelperTransportPolicy.responseTimeoutSeconds
+            ) {
+                once.resume(.failure("helper XPC 連線逾時"))
+                lifetime.invalidate()
+            }
+
             connection.interruptionHandler = {
                 once.resume(.failure("helper XPC 連線中斷"))
-                connection.invalidate()
+                lifetime.invalidate()
             }
             connection.invalidationHandler = {
                 once.resume(.failure("helper XPC 連線失效"))
@@ -245,16 +256,16 @@ final class BatteryHardwareHelperManager {
 
             guard let proxy = connection.remoteObjectProxyWithErrorHandler({ error in
                 once.resume(.failure(error.localizedDescription))
-                connection.invalidate()
+                lifetime.invalidate()
             }) as? BatteryHelperXPCProtocol else {
                 once.resume(.failure("無法建立 helper XPC proxy"))
-                connection.invalidate()
+                lifetime.invalidate()
                 return
             }
 
             invoke(proxy) { dictionary in
                 once.resume(BatteryHelperReply(dictionary))
-                connection.invalidate()
+                lifetime.invalidate()
             }
         }
     }
@@ -323,6 +334,23 @@ private struct BatteryHelperReply: Sendable {
         self.beforeValue = beforeValue
         self.afterValue = afterValue
         self.writeExitCode = writeExitCode
+    }
+}
+
+private final class XPCConnectionLifetime: @unchecked Sendable {
+    private let lock = NSLock()
+    private var connection: NSXPCConnection?
+
+    init(_ connection: NSXPCConnection) {
+        self.connection = connection
+    }
+
+    func invalidate() {
+        lock.lock()
+        let connection = self.connection
+        self.connection = nil
+        lock.unlock()
+        connection?.invalidate()
     }
 }
 
