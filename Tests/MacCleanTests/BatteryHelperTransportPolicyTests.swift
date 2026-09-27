@@ -2,6 +2,23 @@ import XCTest
 @testable import MacClean
 
 final class BatteryHelperTransportPolicyTests: XCTestCase {
+    func testLatestRefreshGenerationWins() {
+        var sequencer = BatteryHelperRefreshSequencer()
+        let first = sequencer.begin()
+        let second = sequencer.begin()
+
+        XCTAssertFalse(sequencer.isCurrent(first))
+        XCTAssertTrue(sequencer.isCurrent(second))
+    }
+
+    func testInvalidateMakesOutstandingRefreshStale() {
+        var sequencer = BatteryHelperRefreshSequencer()
+        let token = sequencer.begin()
+        sequencer.invalidate()
+
+        XCTAssertFalse(sequencer.isCurrent(token))
+    }
+
     func testTransportTimeoutIsBounded() {
         XCTAssertEqual(BatteryHelperTransportPolicy.responseTimeoutSeconds, 3.0)
     }
@@ -48,6 +65,9 @@ final class BatteryHelperTransportPolicyTests: XCTestCase {
         XCTAssertTrue(manager.contains("helper XPC 連線逾時"))
         XCTAssertTrue(manager.contains("XPCConnectionLifetime"))
         XCTAssertTrue(manager.contains("asyncAfter"))
+        XCTAssertTrue(manager.contains("guard !isBusy else { return }"))
+        XCTAssertTrue(manager.contains("refreshSequencer.invalidate()"))
+        XCTAssertTrue(manager.contains("refreshSequencer.isCurrent(generation)"))
     }
 
     private var repoRoot: URL {

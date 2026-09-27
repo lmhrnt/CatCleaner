@@ -24,6 +24,23 @@ enum BatteryHelperTransportPolicy {
     }
 }
 
+struct BatteryHelperRefreshSequencer {
+    private(set) var generation: UInt64 = 0
+
+    mutating func begin() -> UInt64 {
+        generation &+= 1
+        return generation
+    }
+
+    mutating func invalidate() {
+        generation &+= 1
+    }
+
+    func isCurrent(_ token: UInt64) -> Bool {
+        token == generation
+    }
+}
+
 @MainActor
 @Observable
 final class BatteryHardwareHelperManager {
@@ -39,6 +56,7 @@ final class BatteryHardwareHelperManager {
     private(set) var lastProbeMessage: String?
     private(set) var lastProbePassed = false
     private(set) var needsRegistrationRepair = false
+    private var refreshSequencer = BatteryHelperRefreshSequencer()
 
     private init() {
         status = service.status
@@ -63,8 +81,15 @@ final class BatteryHardwareHelperManager {
     }
 
     func refresh() async {
+        guard !isBusy else { return }
+        await refreshCurrentState()
+    }
+
+    private func refreshCurrentState() async {
+        let generation = refreshSequencer.begin()
         status = service.status
         guard status == .enabled else {
+            guard refreshSequencer.isCurrent(generation) else { return }
             helperStatusMessage = "helper \(statusText)"
             lastProbePassed = false
             needsRegistrationRepair = false
@@ -74,11 +99,13 @@ final class BatteryHardwareHelperManager {
         let response = await callHelper { proxy, reply in
             proxy.status(withReply: reply)
         }
+        guard refreshSequencer.isCurrent(generation) else { return }
         applyStatus(response)
     }
 
     func register() async {
         isBusy = true
+        refreshSequencer.invalidate()
         defer { isBusy = false }
 
         let errorMessage: String? = await Task.detached(priority: .userInitiated) {
@@ -101,12 +128,13 @@ final class BatteryHardwareHelperManager {
         }
 
         if status == .enabled {
-            await refresh()
+            await refreshCurrentState()
         }
     }
 
     func unregister() async {
         isBusy = true
+        refreshSequencer.invalidate()
         defer { isBusy = false }
 
         let errorMessage: String? = await Task.detached(priority: .userInitiated) {
@@ -134,6 +162,7 @@ final class BatteryHardwareHelperManager {
 
     func reregister() async {
         isBusy = true
+        refreshSequencer.invalidate()
         defer { isBusy = false }
 
         let errorMessage: String? = await Task.detached(priority: .userInitiated) {
@@ -164,7 +193,7 @@ final class BatteryHardwareHelperManager {
         needsRegistrationRepair = false
         helperStatusMessage = "helper 重新註冊要求已送出"
         if status == .enabled {
-            await refresh()
+            await refreshCurrentState()
         }
     }
 
@@ -187,6 +216,7 @@ final class BatteryHardwareHelperManager {
         }
 
         isBusy = true
+        refreshSequencer.invalidate()
         defer { isBusy = false }
 
         let response = await callHelper { proxy, reply in
