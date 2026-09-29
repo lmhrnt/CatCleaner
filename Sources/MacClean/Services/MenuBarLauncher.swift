@@ -145,6 +145,7 @@ public final class MenuBarLauncher {
     static let minimumBusyDuration: Duration = .milliseconds(450)
 
     public func setEnabled(_ enabled: Bool) async {
+        guard !isBusy else { return }
         isBusy = true
         let started = ContinuousClock.now
         defer { isBusy = false }

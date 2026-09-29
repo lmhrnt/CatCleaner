@@ -103,6 +103,14 @@ final class MenuBarLauncherTests: XCTestCase {
         )
     }
 
+    func testSetEnabledRefusesReentryBeforeStartingServiceTransition() throws {
+        let src = try String(contentsOf: sourceURL("Sources/MacClean/Services/MenuBarLauncher.swift"), encoding: .utf8)
+        XCTAssertTrue(
+            src.contains("public func setEnabled(_ enabled: Bool) async {\n        guard !isBusy else { return }"),
+            "MenuBarLauncher must reject overlapping SMAppService transitions"
+        )
+    }
+
     func testLauncherReconcilesThroughKeepAlivePolicy() throws {
         let src = try String(contentsOf: sourceURL("Sources/MacClean/Services/MenuBarLauncher.swift"), encoding: .utf8)
         XCTAssertTrue(src.contains("MenuBarKeepAlivePolicy.action"))

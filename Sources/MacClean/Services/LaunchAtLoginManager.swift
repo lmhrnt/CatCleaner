@@ -82,6 +82,7 @@ public final class LaunchAtLoginManager {
 
     @discardableResult
     public func setEnabled(_ enabled: Bool) async -> Bool {
+        guard !isBusy else { return isEnabled }
         isBusy = true
         let started = ContinuousClock.now
         defer { isBusy = false }

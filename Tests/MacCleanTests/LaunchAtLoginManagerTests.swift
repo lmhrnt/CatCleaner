@@ -43,6 +43,27 @@ final class LaunchAtLoginManagerTests: XCTestCase {
         XCTAssertNotNil(manager.lastError)
     }
 
+    func testOverlappingSetEnabledCallsRunOnlyOneRegistrationUpdate() async {
+        let counter = LockedCounter()
+        let manager = makeManager(
+            statusProvider: { .notRegistered },
+            registrationUpdater: { _ in
+                counter.increment()
+                Thread.sleep(forTimeInterval: 0.15)
+                return nil
+            }
+        )
+
+        let first = Task { await manager.setEnabled(true) }
+        await Task.yield()
+        let secondResult = await manager.setEnabled(false)
+        _ = await first.value
+
+        XCTAssertFalse(secondResult)
+        XCTAssertEqual(counter.value, 1)
+        XCTAssertFalse(manager.isBusy)
+    }
+
     private func makeManager(
         statusProvider: @escaping @MainActor () -> SMAppService.Status,
         registrationUpdater: @escaping @Sendable (Bool) -> String? = { _ in nil }
@@ -60,6 +81,23 @@ final class LaunchAtLoginManagerTests: XCTestCase {
 
         init(_ value: SMAppService.Status) {
             self.value = value
+        }
+    }
+
+    private final class LockedCounter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+
+        func increment() {
+            lock.lock()
+            count += 1
+            lock.unlock()
+        }
+
+        var value: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return count
         }
     }
 }
