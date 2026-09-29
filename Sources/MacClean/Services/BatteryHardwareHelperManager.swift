@@ -92,6 +92,7 @@ final class BatteryHardwareHelperManager {
             guard refreshSequencer.isCurrent(generation) else { return }
             helperStatusMessage = "helper \(statusText)"
             lastProbePassed = false
+            lastProbeMessage = nil
             needsRegistrationRepair = false
             return
         }
@@ -244,7 +245,10 @@ final class BatteryHardwareHelperManager {
         helperStatusMessage = repairAwareMessage(response)
 
         // A status check never proves SMC write capability.
-        if !response.ok {
+        if needsRegistrationRepair {
+            lastProbePassed = false
+            lastProbeMessage = nil
+        } else if !response.ok {
             lastProbePassed = false
         }
     }

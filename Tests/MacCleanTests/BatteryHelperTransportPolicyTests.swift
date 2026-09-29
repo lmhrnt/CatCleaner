@@ -89,6 +89,8 @@ final class BatteryHelperTransportPolicyTests: XCTestCase {
         XCTAssertTrue(manager.contains("guard !isBusy else { return }"))
         XCTAssertTrue(manager.contains("refreshSequencer.invalidate()"))
         XCTAssertTrue(manager.contains("refreshSequencer.isCurrent(generation)"))
+        XCTAssertTrue(manager.contains("if needsRegistrationRepair {\n            lastProbePassed = false\n            lastProbeMessage = nil"))
+        XCTAssertTrue(manager.contains("helperStatusMessage = \"helper \\(statusText)\"\n            lastProbePassed = false\n            lastProbeMessage = nil"))
     }
 
     private var repoRoot: URL {
