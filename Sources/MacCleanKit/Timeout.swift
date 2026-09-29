@@ -9,26 +9,120 @@ public struct TimeoutError: Error, Equatable {
 /// not finish within `duration`.
 ///
 /// IMPORTANT: Swift task cancellation is cooperative. If `operation` is blocked
-/// inside a non-cancellable C/syscall (the exact failure this guards against in
-/// the menu-bar stats loop), the underlying work keeps running on its executor
-/// until it returns; this function only stops *waiting* on it. So this is a
-/// safety net that keeps the UI responsive, not a way to kill a hung syscall.
-/// Callers must still ensure the operation is fundamentally non-blocking (e.g.
-/// use `statfs` rather than the purgeable-space disk key) so a wedged call can't
-/// pile up behind a serial actor.
+/// inside a non-cancellable C/syscall, timeout stops *waiting* for that work but
+/// cannot kill it. The timed-out operation may continue in its unstructured task
+/// until the underlying call returns. Callers must therefore avoid repeatedly
+/// stacking work that can remain blocked forever.
 public func withTimeout<T: Sendable>(
     _ duration: Duration,
     _ operation: @escaping @Sendable () async throws -> T
 ) async throws -> T {
-    try await withThrowingTaskGroup(of: T.self) { group in
-        group.addTask { try await operation() }
-        group.addTask {
-            try await Task.sleep(for: duration)
-            throw TimeoutError()
+    let race = TimeoutRace<T>()
+
+    return try await withTaskCancellationHandler {
+        try await withCheckedThrowingContinuation { continuation in
+            race.start(
+                continuation: continuation,
+                duration: duration,
+                operation: operation
+            )
         }
-        defer { group.cancelAll() }
-        // The first child to finish wins: the operation's value (or its own
-        // thrown error) if it beats the clock, otherwise TimeoutError.
-        return try await group.next()!
+    } onCancel: {
+        race.finish(.failure(CancellationError()))
+    }
+}
+
+private final class TimeoutRace<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<T, any Error>?
+    private var pendingCompletion: Result<T, any Error>?
+    private var operationTask: Task<Void, Never>?
+    private var timeoutTask: Task<Void, Never>?
+    private var resolved = false
+
+    func start(
+        continuation: CheckedContinuation<T, any Error>,
+        duration: Duration,
+        operation: @escaping @Sendable () async throws -> T
+    ) {
+        lock.lock()
+        if resolved {
+            let completion = pendingCompletion
+            pendingCompletion = nil
+            lock.unlock()
+
+            if let completion {
+                continuation.resume(with: completion)
+            } else {
+                continuation.resume(throwing: CancellationError())
+            }
+            return
+        }
+
+        self.continuation = continuation
+        lock.unlock()
+
+        let operationTask = Task.detached(priority: .userInitiated) {
+            do {
+                let value = try await operation()
+                self.finish(.success(value))
+            } catch {
+                self.finish(.failure(error))
+            }
+        }
+
+        let timeoutTask = Task.detached(priority: .userInitiated) {
+            do {
+                try await Task.sleep(for: duration)
+                self.finish(.failure(TimeoutError()))
+            } catch {
+                // The opposing branch won and cancelled this sleeper.
+            }
+        }
+
+        installTasks(operation: operationTask, timeout: timeoutTask)
+    }
+
+    func finish(_ completion: Result<T, any Error>) {
+        lock.lock()
+        guard !resolved else {
+            lock.unlock()
+            return
+        }
+
+        resolved = true
+        let continuation = self.continuation
+        self.continuation = nil
+
+        if continuation == nil {
+            pendingCompletion = completion
+        }
+
+        let operationTask = self.operationTask
+        let timeoutTask = self.timeoutTask
+        self.operationTask = nil
+        self.timeoutTask = nil
+        lock.unlock()
+
+        operationTask?.cancel()
+        timeoutTask?.cancel()
+        continuation?.resume(with: completion)
+    }
+
+    private func installTasks(
+        operation: Task<Void, Never>,
+        timeout: Task<Void, Never>
+    ) {
+        lock.lock()
+        if resolved {
+            lock.unlock()
+            operation.cancel()
+            timeout.cancel()
+            return
+        }
+
+        operationTask = operation
+        timeoutTask = timeout
+        lock.unlock()
     }
 }
