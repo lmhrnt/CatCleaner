@@ -3,6 +3,8 @@ import AppKit
 import OSLog
 import MacCleanKit
 
+private struct TimedStepAlreadyInFlight: Error {}
+
 /// Owns the menu-bar widget's live data and polls for it **continuously from
 /// app launch**, independent of the popover.
 ///
@@ -33,6 +35,7 @@ final class MenuStatsModel {
 
     private var pollingTask: Task<Void, Never>?
     private var tickCount = 0
+    private let timedStepGate = NonOverlappingOperationGate<String>()
 
     private static let log = Logger(subsystem: MCConstants.menuBundleIdentifier, category: "SystemStats")
 
@@ -86,15 +89,31 @@ final class MenuStatsModel {
         _ op: @escaping @Sendable () async -> T
     ) async -> T? {
         let start = ContinuousClock.now
+        let gate = timedStepGate
+
         do {
-            let value = try await withTimeout(budget) { await op() }
+            let value = try await withTimeout(budget) {
+                guard gate.begin(label) else {
+                    throw TimedStepAlreadyInFlight()
+                }
+                defer { gate.end(label) }
+                return await op()
+            }
+
             let elapsed = ContinuousClock.now - start
             if elapsed > .milliseconds(500) {
                 Self.log.warning("stats step '\(label, privacy: .public)' slow: \(elapsed.description, privacy: .public)")
             }
             return value
-        } catch {
+        } catch is TimedStepAlreadyInFlight {
+            return nil
+        } catch is CancellationError {
+            return nil
+        } catch is TimeoutError {
             Self.log.error("stats step '\(label, privacy: .public)' exceeded its budget; skipping this tick")
+            return nil
+        } catch {
+            Self.log.error("stats step '\(label, privacy: .public)' failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
