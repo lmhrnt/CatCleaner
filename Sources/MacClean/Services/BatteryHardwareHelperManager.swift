@@ -104,6 +104,7 @@ final class BatteryHardwareHelperManager {
     }
 
     func register() async {
+        guard !isBusy else { return }
         isBusy = true
         refreshSequencer.invalidate()
         defer { isBusy = false }
@@ -133,6 +134,7 @@ final class BatteryHardwareHelperManager {
     }
 
     func unregister() async {
+        guard !isBusy else { return }
         isBusy = true
         refreshSequencer.invalidate()
         defer { isBusy = false }
@@ -161,6 +163,7 @@ final class BatteryHardwareHelperManager {
     }
 
     func reregister() async {
+        guard !isBusy else { return }
         isBusy = true
         refreshSequencer.invalidate()
         defer { isBusy = false }
@@ -202,6 +205,7 @@ final class BatteryHardwareHelperManager {
     }
 
     func probeSameValueWrite() async {
+        guard !isBusy else { return }
         guard status == .enabled else {
             lastProbePassed = false
             lastProbeMessage = "helper 尚未啟用"

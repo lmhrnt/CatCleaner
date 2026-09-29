@@ -23,6 +23,27 @@ final class BatteryHelperTransportPolicyTests: XCTestCase {
         XCTAssertEqual(BatteryHelperTransportPolicy.responseTimeoutSeconds, 3.0)
     }
 
+    func testExclusiveHelperActionsRefuseReentry() throws {
+        let manager = try String(
+            contentsOf: repoRoot.appending(
+                path: "Sources/MacClean/Services/BatteryHardwareHelperManager.swift"
+            ),
+            encoding: .utf8
+        )
+        let view = try String(
+            contentsOf: repoRoot.appending(
+                path: "Sources/MacClean/Views/Battery/BatteryCareView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(manager.contains("func register() async {\n        guard !isBusy else { return }"))
+        XCTAssertTrue(manager.contains("func unregister() async {\n        guard !isBusy else { return }"))
+        XCTAssertTrue(manager.contains("func reregister() async {\n        guard !isBusy else { return }"))
+        XCTAssertTrue(manager.contains("func probeSameValueWrite() async {\n        guard !isBusy else { return }"))
+        XCTAssertTrue(view.contains(".disabled(helperManager.isBusy)"))
+    }
+
     func testEnabledServiceNeedsRepairWhenTransportIsUnavailable() {
         XCTAssertTrue(
             BatteryHelperTransportPolicy.needsRegistrationRepair(
