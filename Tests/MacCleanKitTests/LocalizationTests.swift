@@ -169,4 +169,31 @@ final class LocalizationTests: AppLanguageTestCase {
         XCTAssertEqual(FileGroup.ageLabel(days: 400), "Более 1 года")
         XCTAssertEqual(FileListSort.sizeDescending.label, "Сначала крупные")
     }
+
+    func testBatteryCareSidebarTitleIsTranslated() {
+        AppLanguage.current = .en
+        XCTAssertEqual(L10n.tr("电池保养"), "Battery Care")
+        AppLanguage.current = .ru
+        XCTAssertEqual(L10n.tr("电池保养"), "Уход за аккумулятором")
+        AppLanguage.current = .zhHantTW
+        XCTAssertEqual(L10n.tr("电池保养"), "電池保養")
+    }
+
+    func testSubKilobyteSizesArePluralizedInAppLanguage() {
+        AppLanguage.current = .en
+        XCTAssertEqual(FileSizeFormatter.format(UInt64(1)), "1 byte")
+        XCTAssertEqual(FileSizeFormatter.format(UInt64(395)), "395 bytes")
+        XCTAssertEqual(FileSizeFormatter.shortFormat(1).unit, "byte")
+        XCTAssertEqual(FileSizeFormatter.shortFormat(395).unit, "bytes")
+
+        AppLanguage.current = .ru
+        XCTAssertEqual(FileSizeFormatter.format(UInt64(1)), "1 байт")
+        XCTAssertEqual(FileSizeFormatter.format(UInt64(3)), "3 байта")
+        XCTAssertEqual(FileSizeFormatter.format(UInt64(395)), "395 байт")
+
+        // Zero and >= 1 KB still go through ByteCountFormatter.
+        AppLanguage.current = .en
+        XCTAssertNil(FileSizeFormatter.smallByteParts(0))
+        XCTAssertNil(FileSizeFormatter.smallByteParts(1000))
+    }
 }
