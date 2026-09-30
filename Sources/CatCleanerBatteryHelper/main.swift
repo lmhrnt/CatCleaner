@@ -151,6 +151,13 @@ private enum TrustedSMCTool {
     }
 }
 
+private enum BatteryHelperProcessPolicy {
+    // Timeout + ProcessOutputCapture termination/drain cleanup remains below
+    // 0.4 s per child. At most six child processes run in one probe, keeping
+    // the helper below the caller's 3 s XPC response budget with margin.
+    static let timeoutSeconds: TimeInterval = 0.30
+}
+
 private enum CompetingController {
     private static let fragments = [
         "/Applications/AlDente.app/Contents/MacOS/AlDente",
@@ -162,7 +169,8 @@ private enum CompetingController {
         fragments.contains { fragment in
             let result = try? ProcessOutputCapture.run(
                 executable: URL(filePath: "/usr/bin/pgrep"),
-                arguments: ["-f", fragment]
+                arguments: ["-f", fragment],
+                timeout: BatteryHelperProcessPolicy.timeoutSeconds
             )
             return result?.exitCode == 0
         }
@@ -219,7 +227,8 @@ private final class BatteryHelperService: NSObject, BatteryHelperXPCProtocol {
         do {
             write = try ProcessOutputCapture.run(
                 executable: tool,
-                arguments: ["-k", key, "-w", before]
+                arguments: ["-k", key, "-w", before],
+                timeout: BatteryHelperProcessPolicy.timeoutSeconds
             )
         } catch {
             reply(failure("啟動 smc 同值寫回失敗：\(error.localizedDescription)"))
@@ -269,7 +278,8 @@ private final class BatteryHelperService: NSObject, BatteryHelperXPCProtocol {
     private func readHexByte(key: String, using tool: URL) -> String? {
         guard let result = try? ProcessOutputCapture.run(
             executable: tool,
-            arguments: ["-r", "-k", key]
+            arguments: ["-r", "-k", key],
+            timeout: BatteryHelperProcessPolicy.timeoutSeconds
         ),
         result.exitCode == 0 else {
             return nil

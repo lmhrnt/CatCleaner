@@ -37,4 +37,21 @@ final class ProcessOutputCaptureTests: XCTestCase {
         XCTAssertEqual(result.stdout, "normal-output")
         XCTAssertEqual(result.stderr, "diagnostic-output")
     }
+
+    func testTimeoutStopsWaitingForHungProcess() {
+        let started = ContinuousClock.now
+
+        XCTAssertThrowsError(
+            try ProcessOutputCapture.run(
+                executable: URL(fileURLWithPath: "/bin/sleep"),
+                arguments: ["5"],
+                timeout: 0.05
+            )
+        ) { error in
+            XCTAssertEqual(error as? ProcessOutputCaptureError, .timedOut)
+        }
+
+        let elapsed = ContinuousClock.now - started
+        XCTAssertLessThan(elapsed, .milliseconds(500))
+    }
 }

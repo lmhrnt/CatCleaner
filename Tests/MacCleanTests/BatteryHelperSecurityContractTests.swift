@@ -75,6 +75,22 @@ final class BatteryHelperSecurityContractTests: XCTestCase {
         XCTAssertFalse(helper.contains("ProcessInfo.processInfo.arguments"))
     }
 
+    func testHelperBoundsEveryExternalProcessBelowXPCBudget() throws {
+        let helper = try source("Sources/CatCleanerBatteryHelper/main.swift")
+
+        XCTAssertTrue(helper.contains("static let timeoutSeconds: TimeInterval = 0.30"))
+        XCTAssertEqual(
+            helper.components(separatedBy: "ProcessOutputCapture.run(").count - 1,
+            3
+        )
+        XCTAssertEqual(
+            helper.components(
+                separatedBy: "timeout: BatteryHelperProcessPolicy.timeoutSeconds"
+            ).count - 1,
+            3
+        )
+    }
+
     func testBuildAndSigningScriptsEnforceServiceManagementDaemon() throws {
         let buildScript = try source("scripts/build-dmg.sh")
         let signingScript = try source("scripts/local-signing-identity.sh")
