@@ -212,17 +212,18 @@ public struct SidebarView: View {
     private func sectionHeader(_ section: SidebarSection) -> some View {
         let isCollapsed = collapsedSections.contains(section)
         return HStack(spacing: 6) {
-            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
-                .frame(width: 14)
-            Text(section.title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+            Text(section.title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
             Spacer()
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .rotationEffect(.degrees(isCollapsed ? -90 : 0))
         }
-        .padding(.horizontal, 2)
-        .padding(.top, 8)
+        .padding(.leading, 10)
+        .padding(.trailing, 8)
+        .padding(.top, 12)
         .padding(.bottom, 2)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -242,14 +243,14 @@ public struct SidebarView: View {
             HStack(spacing: 8) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13))
-                    .foregroundStyle(selection == .settings ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(selection == .settings ? CatPalette.amberDeep : Color.secondary)
                 Text(L10n.tr("设置", "Settings", "Настройки"))
                     .font(.system(size: 13, weight: .medium))
                 Spacer()
                 // Version lives here (not in the title bar); kept in sync
                 // with VERSION by CI via check-version-sync.sh.
-                Text("版本 \(MCConstants.appVersion)")
-                    .font(.system(size: 10, design: .monospaced))
+                Text("v\(MCConstants.appVersion)")
+                    .font(.system(size: 11).monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 10)
@@ -259,7 +260,7 @@ public struct SidebarView: View {
         .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(selection == .settings ? Color.primary.opacity(0.10) : Color.clear)
+                .fill(selection == .settings ? CatPalette.selection : Color.clear)
         )
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -276,7 +277,7 @@ public struct SidebarView: View {
                     .foregroundStyle(item.theme.accentColor)
 
                 Text(item.title)
-                    .font(.system(size: 13, weight: item == .smartScan ? .semibold : .regular))
+                    .font(.system(size: 13, weight: selection == item || item == .smartScan ? .semibold : .regular))
                     .foregroundStyle(.primary)
 
                 Spacer(minLength: 0)
@@ -287,8 +288,8 @@ public struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(selection == item ? Color.primary.opacity(0.10) : Color.clear)
+            RoundedRectangle(cornerRadius: 7)
+                .fill(selection == item ? CatPalette.selection : Color.clear)
         )
         .accessibilityAddTraits(selection == item ? .isSelected : [])
     }

@@ -142,7 +142,7 @@ struct SmartScanView: View {
 
             VStack(spacing: 8) {
                 Text(L10n.tr("智能扫描", "Smart Scan", "Умное сканирование"))
-                    .font(.system(size: 30, weight: .bold))
+                    .font(CatType.display)
                     .foregroundStyle(.primary)
                 Text(L10n.tr(
                     "扫描 Mac 中的垃圾文件、恶意威胁\n与隐私痕迹",
@@ -170,32 +170,33 @@ struct SmartScanView: View {
 
     private func scanningView(phase: String, progress: Double, filesFound: Int, sizeFound: UInt64) -> some View {
         VStack(spacing: 0) {
-            // Top stats bar
-            HStack(spacing: 24) {
-                statBadge(label: L10n.tr("进度"), value: "\(Int(progress * 100))%")
-                statBadge(label: L10n.tr("已发现文件", "Files Found", "Найдено файлов"), value: filesFound.formatted())
-                statBadge(label: L10n.tr("大小", "Size", "Размер"), value: FileSizeFormatter.format(sizeFound))
-            }
-            .padding(.horizontal, 30)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
+            // Header: the cat eye tracks overall progress; the counts sit
+            // to the trailing side. Top padding clears the centered title.
+            HStack(alignment: .center, spacing: 18) {
+                CatEye(dilation: 0.1 + 0.9 * progress, progress: progress, size: 58)
 
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.primary.opacity(0.12))
-                        .frame(height: 6)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(Int(progress * 100))%")
+                        .font(CatType.display.monospacedDigit())
+                        .foregroundStyle(.primary)
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.2), value: Int(progress * 100))
+                    Text(phase)
+                        .font(CatType.body)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.primary)
-                        .frame(width: geo.size.width * progress, height: 6)
-                        .animation(.easeInOut(duration: 0.3), value: progress)
+                Spacer(minLength: 12)
+
+                HStack(spacing: 28) {
+                    statBadge(label: L10n.tr("已发现文件", "Files Found", "Найдено файлов"), value: filesFound.formatted())
+                    statBadge(label: L10n.tr("大小", "Size", "Размер"), value: FileSizeFormatter.format(sizeFound))
                 }
             }
-            .frame(height: 6)
-            .padding(.horizontal, 30)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 32)
+            .padding(.top, 52)
+            .padding(.bottom, 20)
 
             // Module checklist
             ScrollView {
@@ -218,6 +219,7 @@ struct SmartScanView: View {
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
+                .padding(.top, 14)
                 .padding(.bottom, 20)
         }
     }
@@ -284,23 +286,21 @@ struct SmartScanView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(isActive ? Color.primary.opacity(0.1) : Color.clear)
+        .background(isActive ? CatPalette.selection : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func statBadge(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
+        VStack(alignment: .trailing, spacing: 2) {
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
                 .contentTransition(.numericText())
                 .animation(.easeInOut(duration: 0.2), value: value)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.5))
-                .textCase(.uppercase)
+                .font(CatType.caption)
+                .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Results
@@ -320,21 +320,20 @@ struct SmartScanView: View {
             .foregroundStyle(.primary)
             .padding(.top, 24)
 
-            HStack(spacing: 24) {
-                resultPill(
-                    icon: "trash.circle.fill",
-                    label: L10n.tr("清理", "Cleanup", "Очистка"),
-                    value: FileSizeFormatter.format(summary.cleanupBytes)
-                )
+            // The hero already states the cleanup size; these two lines add
+            // only what it doesn't — threats and traces — as quiet figures.
+            HStack(spacing: 36) {
                 resultPill(
                     icon: "shield.lefthalf.filled",
                     label: L10n.tr("恶意项目", "Malware", "Вредоносное ПО"),
-                    value: summary.malwareCount.formatted()
+                    value: summary.malwareCount.formatted(),
+                    tint: ModuleTheme.protection.accentColor
                 )
                 resultPill(
                     icon: "hand.raised.fill",
                     label: L10n.tr("隐私痕迹", "Privacy traces", "Следы конфиденциальности"),
-                    value: summary.privacyCount.formatted()
+                    value: summary.privacyCount.formatted(),
+                    tint: ModuleTheme.protection.accentColor
                 )
             }
 
@@ -551,7 +550,6 @@ struct SmartScanView: View {
                     Text(L10n.tr("最近清理", "Recently cleaned", "Недавно очищено"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.55))
-                        .textCase(.uppercase)
                     ForEach(breakdown, id: \.moduleID) { row in
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
@@ -626,20 +624,21 @@ struct SmartScanView: View {
 
     // MARK: - Components
 
-    private func resultPill(icon: String, label: String, value: String) -> some View {
-        VStack(spacing: 6) {
+    private func resultPill(icon: String, label: String, value: String, tint: Color) -> some View {
+        HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 22))
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .opacity(0.7)
-            Text(value)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16))
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(CatType.figure)
+                    .foregroundStyle(.primary)
+                Text(label)
+                    .font(CatType.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .foregroundStyle(.primary)
-        .frame(width: 110, height: 90)
-        .background(.primary.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Actions

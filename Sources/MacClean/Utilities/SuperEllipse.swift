@@ -62,25 +62,31 @@ public struct SuperEllipseButtonStyle: ButtonStyle {
         // a fixed width truncates longer localized labels (e.g. Russian "Run
         // Safe Tasks" / "Check for Updates" / "Scan" overflow the English-sized
         // pills). Short labels still render at the design width; longer ones
-        // grow instead of clipping. The large square scan buttons keep their
-        // shape because their content is narrower than the 160pt minimum.
+        // grow instead of clipping.
+        //
+        // Pills are capsules; the rare large button keeps the squircle. Labels
+        // are dark ink because white on the amber accent fails contrast.
         let isPill = size.height <= 60
+        let shape = isPill
+            ? AnyShape(Capsule())
+            : AnyShape(SuperEllipse(cornerRadius: size.width * 0.28))
         return configuration.label
-            .font(.system(size: isPill ? 14 : 18, weight: .semibold))
-            .foregroundStyle(.white)
+            .font(.system(size: isPill ? 14 : 18, weight: .semibold, design: .rounded))
+            .foregroundStyle(CatPalette.onAmber)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, isPill ? 16 : 0)
+            .padding(.horizontal, isPill ? 18 : 0)
             .frame(minWidth: size.width, minHeight: size.height)
             .background {
                 ZStack {
                     gradient
-                    Color.white.opacity(0.08)
+                    Color.black.opacity(configuration.isPressed ? 0.08 : 0)
                 }
             }
-            .clipShape(SuperEllipse(cornerRadius: size.width * 0.28))
-            .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+            .clipShape(shape)
+            .overlay(shape.stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+            .shadow(color: CatPalette.irisDeep.opacity(0.22), radius: isPill ? 4 : 12, y: isPill ? 2 : 6)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

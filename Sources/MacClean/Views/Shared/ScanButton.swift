@@ -1,6 +1,9 @@
 import SwiftUI
 import MacCleanKit
 
+/// The module "Scan" control. At rest it is CatCleaner's cat eye — a slit
+/// pupil that opens slightly on hover — with the action named underneath.
+/// While scanning, the pupil dilates with progress and a ring tracks it.
 public struct ScanButton: View {
     let title: String
     let subtitle: String?
@@ -8,6 +11,8 @@ public struct ScanButton: View {
     let isScanning: Bool
     let progress: Double
     let action: () -> Void
+
+    @State private var isHovering = false
 
     public init(
         title: String = L10n.tr("扫描", "Scan", "Сканировать"),
@@ -32,44 +37,41 @@ public struct ScanButton: View {
             Button(action: action) {
                 idleContent
             }
-            .buttonStyle(SuperEllipseButtonStyle(
-                gradient: theme.buttonGradient,
-                size: CGSize(width: 160, height: 160)
-            ))
+            .buttonStyle(CatEyeButtonStyle())
+            .onHover { isHovering = $0 }
+            .accessibilityLabel(subtitle.map { "\(title), \($0)" } ?? title)
         }
     }
 
     private var idleContent: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 32, weight: .light))
-            Text(title)
-                .font(.system(size: 18, weight: .semibold))
-            if let subtitle {
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .opacity(0.7)
+        VStack(spacing: 14) {
+            CatEye(dilation: isHovering ? 0.32 : 0.06, size: 132)
+
+            VStack(spacing: 3) {
+                Text(title)
+                    .font(CatType.action)
+                    .foregroundStyle(CatPalette.onAmber)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(theme.buttonGradient))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(CatType.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                }
             }
         }
+        .contentShape(Rectangle())
     }
 
     private var scanningContent: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Circle()
-                    .stroke(.primary.opacity(0.15), lineWidth: 6)
-
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(.primary, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.3), value: progress)
-
-                Text("\(Int(progress * 100))%")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-            }
-            .frame(width: 100, height: 100)
+        VStack(spacing: 12) {
+            CatEye(dilation: progress, progress: progress, size: 96)
+            Text("\(Int(progress * 100))%")
+                .font(CatType.figure)
+                .foregroundStyle(.primary)
+                .contentTransition(.numericText())
         }
     }
 }
@@ -88,36 +90,33 @@ public struct ScanProgressRing: View {
     }
 
     public var body: some View {
-        VStack(spacing: 20) {
-            ZStack {
-                Circle()
-                    .stroke(.primary.opacity(0.12), lineWidth: 7)
-
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(.primary, style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.35), value: progress)
-
-                Text("\(Int(progress * 100))%")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-            }
-            .frame(width: 110, height: 110)
+        VStack(spacing: 18) {
+            CatEye(dilation: 0.1 + 0.9 * progress, progress: progress, size: 104)
 
             VStack(spacing: 6) {
+                // Some callers already put the percentage in `phase`
+                // ("Cleaning… 42%"); don't print it twice.
+                if !phase.contains("%") {
+                    Text("\(Int(progress * 100))%")
+                        .font(CatType.figure)
+                        .foregroundStyle(.primary)
+                        .contentTransition(.numericText())
+                }
+
                 Text(phase)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.primary)
                     .contentTransition(.interpolate)
                     .animation(.easeInOut(duration: 0.2), value: phase)
 
                 if let detail {
                     Text(detail)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .font(CatType.body)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue("\(Int(progress * 100))%")
     }
 }

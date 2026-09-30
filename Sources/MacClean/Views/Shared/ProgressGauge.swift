@@ -23,7 +23,7 @@ public struct ProgressGauge: View {
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        theme.gradient,
+                        CatPalette.amber,
                         style: StrokeStyle(lineWidth: 8, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))

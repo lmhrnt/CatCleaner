@@ -92,7 +92,7 @@ struct ShredderView: View {
                         selectFiles()
                     }
                     .buttonStyle(SuperEllipseButtonStyle(
-                        gradient: ModuleTheme.files.gradient,
+                        gradient: ModuleTheme.files.buttonGradient,
                         size: CGSize(width: 140, height: 44)
                     ))
 
